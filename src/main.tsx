@@ -1,27 +1,28 @@
-// /src/main.tsx
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools'; // Herramienta de depuración
-
 import App from './App.tsx';
-import queryClient from './lib/queryClient.ts'; // Nuestro cliente de Query
-import './index.css'; // O tu archivo de estilos globales
+import './index.css';
+import { useAuthStore } from './store/auth.store';
+
+const Init: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const initFromStorage = useAuthStore((s) => s.initFromStorage);
+  const initialized = useAuthStore((s) => s.initialized);
+
+  useEffect(() => {
+    void initFromStorage();
+  }, [initFromStorage]);
+
+  if (!initialized) return null; // evita parpadeos de UI sin sesión
+  return <>{children}</>;
+};
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {/* 1. Proveedor de React Query (para caché y rendimiento) */}
-    <QueryClientProvider client={queryClient}>
-      
-      {/* 2. Proveedor de React Router (para navegación SPA) */}
-      <BrowserRouter>
+    <BrowserRouter>
+      <Init>
         <App />
-      </BrowserRouter>
-      
-      {/* 3. (Opcional) Herramientas de depuración para React Query */}
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  </React.StrictMode>
+      </Init>
+    </BrowserRouter>
+  </React.StrictMode>,
 );
