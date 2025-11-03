@@ -1,88 +1,111 @@
 // /src/components/layout/Navbar.tsx
 
-import React from 'react'; // Importamos React
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaMusic } from 'react-icons/fa6';
-import { useAuthStore } from '../../store/auth.store'; // 1. Importamos el store
+import { useAuthStore } from '../../store/auth.store';
 
 export const Navbar = () => {
-  // 2. Leemos el estado y las acciones del store
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  // --- Estilos (los mismos de antes) ---
-  const navStyle: React.CSSProperties = {
-    backgroundColor: '#1a1a1a',
-    color: 'white',
-    padding: '1rem 2rem',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottom: '1px solid #333',
-  };
-  const logoStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    fontSize: '1.25rem',
-    textDecoration: 'none',
-    color: 'white',
-  };
-  const linkStyle: React.CSSProperties = {
-    textDecoration: 'none',
-    color: 'white',
-    margin: '0 0.5rem',
-  };
-  const buttonStyle: React.CSSProperties = {
-    backgroundColor: '#333',
-    color: 'white',
-    border: 'none',
-    padding: '0.5rem 1rem',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    textDecoration: 'none',
-    fontSize: '0.9rem', // Ajustamos tamaño
-  };
-  // --- Fin de Estilos ---
-
   const handleLogout = () => {
     logout();
-    // (Opcional) redirigir al home
-    // navigate('/'); 
   };
 
   return (
-    <nav style={navStyle}>
+    <nav style={{
+      backgroundColor: '#1a1a1a',
+      color: 'white',
+      padding: '1rem 2rem',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid #333',
+      position: 'sticky',
+      top: 0,
+      zIndex: 1000,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.3)'
+    }}>
       {/* Lado Izquierdo: Logo y Links de Navegación */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-        <Link to="/" style={logoStyle}>
+        <Link to="/" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          fontSize: '1.25rem',
+          textDecoration: 'none',
+          color: 'white',
+          fontWeight: 'bold'
+        }}>
           <FaMusic />
-          <strong>MPT</strong>
+          <span>MPT</span>
         </Link>
         
-        <div style={{ marginLeft: '2rem' }}>
-          <Link to="/" style={linkStyle}>Inicio</Link>
-          <Link to="/discover" style={linkStyle}>Descubrir</Link>
-          <Link to="/charts" style={linkStyle}>Charts</Link>
+        <div style={{ display: 'flex', gap: '1.5rem', marginLeft: '1rem' }}>
+          <Link to="/" style={{
+            textDecoration: 'none',
+            color: 'white',
+            fontSize: '0.95rem',
+            transition: 'color 0.2s'
+          }}>
+            Inicio
+          </Link>
+          <Link to="/discover" style={{
+            textDecoration: 'none',
+            color: 'white',
+            fontSize: '0.95rem',
+            transition: 'color 0.2s'
+          }}>
+            Descubrir
+          </Link>
+          <Link to="/charts" style={{
+            textDecoration: 'none',
+            color: 'white',
+            fontSize: '0.95rem',
+            transition: 'color 0.2s'
+          }}>
+            Charts
+          </Link>
         </div>
       </div>
 
-      {/* Lado Derecho: Lógica de Autenticación */}
+      {/* Lado Derecho: Autenticación */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         {isAuthenticated && user ? (
-          // 3. VISTA SI ESTÁ LOGUEADO
           <>
             <span style={{ fontSize: '0.9rem' }}>
-              Hola, <Link to={`/perfil/${user.username}`} style={linkStyle}>{user.username}</Link>
+              Hola, <Link to={`/perfil/${user.username}`} style={{
+                color: 'white',
+                textDecoration: 'none',
+                fontWeight: 'bold'
+              }}>{user.username}</Link>
             </span>
-            <button onClick={handleLogout} style={buttonStyle}>
+            <button onClick={handleLogout} style={{
+              backgroundColor: '#333',
+              color: 'white',
+              border: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '0.9rem',
+              transition: 'background-color 0.2s'
+            }}>
               Cerrar Sesión
             </button>
           </>
         ) : (
-          // 4. VISTA SI NO ESTÁ LOGUEADO
-          <Link to="/login" style={buttonStyle}>
+          <Link to="/login" style={{
+            backgroundColor: '#333',
+            color: 'white',
+            padding: '0.5rem 1rem',
+            borderRadius: '6px',
+            textDecoration: 'none',
+            fontSize: '0.9rem',
+            transition: 'background-color 0.2s',
+            display: 'inline-block'
+          }}>
             Iniciar Sesión
           </Link>
         )}
