@@ -10,12 +10,17 @@ import RegisterPage from './pages/RegisterPage';
 import ChartsPage from './pages/ChartsPage';
 import DiscoverPage from './pages/DiscoverPage';
 import ProfilePage from './pages/ProfilePage';
-import SearchPage from './pages/SearchPage'; // <-- NUEVO
+import SearchPage from './pages/SearchPage';
+import EditProfilePage from './pages/EditProfilePage';
+import MyListsPage from './pages/MyListsPage';
+import CreateListPage from './pages/CreateListPage';
+import AlbumDetailPage from './pages/AlbumDetailPage';
+import WriteReviewPage from './pages/WriteReviewPage';
 
 function App() {
   return (
     <Routes>
-      {/* --- Rutas con Layout Principal --- */}
+      {/* --- Rutas Públicas con Layout Principal --- */}
       <Route
         path="/"
         element={
@@ -24,6 +29,7 @@ function App() {
           </MainLayout>
         }
       />
+      
       <Route 
         path="/charts" 
         element={
@@ -32,6 +38,7 @@ function App() {
           </MainLayout>
         } 
       />
+      
       <Route 
         path="/discover" 
         element={
@@ -40,16 +47,7 @@ function App() {
           </MainLayout>
         } 
       />
-      <Route 
-        path="/perfil/:username" 
-        element={
-          <MainLayout>
-            <ProfilePage />
-          </MainLayout>
-        } 
-      />
       
-      {/* --- NUEVA RUTA DE BÚSQUEDA --- */}
       <Route 
         path="/search" 
         element={
@@ -59,18 +57,78 @@ function App() {
         } 
       />
 
-      {/* --- Rutas sin Layout (Login/Registro) --- */}
+      {/* --- Rutas de Perfil --- */}
+      <Route 
+        path="/perfil/:username" 
+        element={
+          <MainLayout>
+            <ProfilePage />
+          </MainLayout>
+        } 
+      />
+      
+      <Route 
+        path="/perfil/editar" 
+        element={
+          <MainLayout>
+            <EditProfilePage />
+          </MainLayout>
+        } 
+      />
+
+      {/* --- Rutas de Listas --- */}
+      <Route 
+        path="/mis-listas" 
+        element={
+          <MainLayout>
+            <MyListsPage />
+          </MainLayout>
+        } 
+      />
+      
+      <Route 
+        path="/listas/crear" 
+        element={
+          <MainLayout>
+            <CreateListPage />
+          </MainLayout>
+        } 
+      />
+
+      {/* --- Rutas de Autenticación (sin Layout) --- */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-
 
       {/* --- Ruta 404 --- */}
       <Route 
         path="*" 
         element={
           <MainLayout>
-            <h2>404 - Página No Encontrada</h2>
-            <p>El recurso que buscas no existe.</p>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '4rem',
+              color: 'white' 
+            }}>
+              <h1 style={{ fontSize: '4rem', marginBottom: '1rem' }}>404</h1>
+              <h2 style={{ marginBottom: '1rem' }}>Página No Encontrada</h2>
+              <p style={{ color: '#888', marginBottom: '2rem' }}>
+                El recurso que buscas no existe.
+              </p>
+              <a 
+                href="/"
+                style={{
+                  display: 'inline-block',
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#646cff',
+                  color: 'white',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  fontWeight: 'bold'
+                }}
+              >
+                Volver al Inicio
+              </a>
+            </div>
           </MainLayout>
         } 
       />

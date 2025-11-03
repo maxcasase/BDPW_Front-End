@@ -4,6 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaMusic } from 'react-icons/fa6';
 import { useAuthStore } from '../../store/auth.store';
+import { NotificationsDropdown } from '../notifications/NotificationsDropdown';
 
 export const Navbar = () => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -71,10 +72,13 @@ export const Navbar = () => {
         </div>
       </div>
 
-      {/* Lado Derecho: Autenticación */}
+      {/* Lado Derecho: Autenticación y Notificaciones */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
         {isAuthenticated && user ? (
           <>
+            {/* Notificaciones */}
+            <NotificationsDropdown />
+            
             <span style={{ fontSize: '0.9rem' }}>
               Hola, <Link to={`/perfil/${user.username}`} style={{
                 color: 'white',
