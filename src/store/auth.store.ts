@@ -1,57 +1,52 @@
-// /src/store/auth.store.ts
-
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { type IUser } from '../interfaces/user.interfaces'; // <-- CORREGIDO (plural)
+import { type IUser } from '../interfaces/user.interfaces';
+import { authAPI } from '../api/client';
 
-// Definimos la forma del estado
 interface AuthState {
   token: string | null;
   user: IUser | null;
   isAuthenticated: boolean;
-  
-  // Acciones (funciones para modificar el estado)
+  initialized: boolean;
+
   setToken: (token: string) => void;
   setUser: (user: IUser) => void;
   logout: () => void;
+  initFromStorage: () => Promise<void>;
 }
 
-// Creamos el 'store' (almacén)
 export const useAuthStore = create<AuthState>()(
-  // 1. 'persist' envuelve nuestro 'store'
   persist(
-    (set) => ({
-      // Estado inicial
+    (set, get) => ({
       token: null,
       user: null,
       isAuthenticated: false,
+      initialized: false,
 
-      // --- Definición de las Acciones ---
-
-      // Acción para guardar el token
       setToken: (token: string) =>
-        set({
-          token: token,
-          isAuthenticated: true,
-        }),
+        set({ token, isAuthenticated: true }),
 
-      // Acción para guardar los datos del usuario
-      setUser: (user: IUser) =>
-        set({
-          user: user,
-        }),
+      setUser: (user: IUser) => set({ user }),
 
-      // Acción para cerrar sesión
-      logout: () =>
-        set({
-          token: null,
-          user: null,
-          isAuthenticated: false,
-        }),
+      logout: () => set({ token: null, user: null, isAuthenticated: false }),
+
+      initFromStorage: async () => {
+        const token = get().token;
+        if (!token) {
+          set({ initialized: true });
+          return;
+        }
+        try {
+          const me = await authAPI.me(token);
+          set({ user: me, isAuthenticated: true, initialized: true });
+        } catch (e) {
+          // Token inválido o backend caído: limpiar estado pero no romper la app
+          set({ token: null, user: null, isAuthenticated: false, initialized: true });
+        }
+      },
     }),
     {
-      // 3. Configuración de 'persist'
-      name: 'auth-storage', // Nombre de la clave en localStorage
+      name: 'auth-storage',
       partialize: (state) => ({ token: state.token }),
     }
   )
