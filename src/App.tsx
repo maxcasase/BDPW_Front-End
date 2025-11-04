@@ -57,6 +57,25 @@ function App() {
         } 
       />
 
+      {/* --- Rutas de Álbum y Reseñas --- */}
+      <Route 
+        path="/album/:id" 
+        element={
+          <MainLayout>
+            <AlbumDetailPage />
+          </MainLayout>
+        } 
+      />
+
+      <Route 
+        path="/album/:id/review" 
+        element={
+          <MainLayout>
+            <WriteReviewPage />
+          </MainLayout>
+        } 
+      />
+
       {/* --- Rutas de Perfil --- */}
       <Route 
         path="/perfil/:username" 
