@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FaStar } from 'react-icons/fa';
-import { createReview } from '../api/reviewsApi';
+import { useAlbum } from '../hooks/useAlbums';
+import { useCreateReview, useUserAlbumReview } from '../hooks/useReviews';
+import { useAuthStore } from '../store/auth.store';
+import type { CreateReviewRequest } from '../interfaces/api';
 
 const WriteReviewPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -15,16 +17,34 @@ const WriteReviewPage = () => {
     content: ''
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Datos del álbum (simulados - en el futuro se cargarían de la API)
-  const album = {
-    id: id,
-    titulo: 'Abbey Road',
-    artista: 'The Beatles',
-    portada_url: 'https://via.placeholder.com/150'
-  };
+  // Estado de autenticación
+  const user = useAuthStore((state: any) => state.user);
+  const isAuthenticated = useAuthStore((state: any) => state.isAuthenticated);
+
+  // Cargar datos del álbum
+  const { data: album, isLoading: albumLoading, error: albumError } = useAlbum(id!);
+
+  // Verificar si ya existe reseña del usuario
+  const { data: existingReview } = useUserAlbumReview(user?._id, id!);
+
+  // Hook para crear reseña
+  const createReviewMutation = useCreateReview();
+
+  // Redirigir si no está autenticado
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    // Si ya tiene una reseña, redirigir al álbum
+    if (existingReview) {
+      navigate(`/album/${id}`);
+      return;
+    }
+  }, [isAuthenticated, existingReview, navigate, id]);
 
   const validateForm = () => {
     if (formData.rating === 0) {
@@ -46,39 +66,89 @@ const WriteReviewPage = () => {
     e.preventDefault();
     setError(null);
 
-    if (!validateForm()) {
+    if (!validateForm() || !id) {
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      // Llamada real a la API
-      const reviewData = {
-        album_id: parseInt(id || '1'),
+      const reviewData: CreateReviewRequest = {
+        album_id: id,
         rating: formData.rating,
         title: formData.title.trim(),
         content: formData.content.trim()
       };
 
-      console.log('Enviando reseña:', reviewData);
-      const response = await createReview(reviewData);
-      console.log('¡Reseña creada!', response);
+      await createReviewMutation.mutateAsync(reviewData);
       
-      // Redirigir al álbum
+      // Redirigir al álbum con éxito
       navigate(`/album/${id}`);
     } catch (err: any) {
       console.error('Error al crear reseña:', err);
       
       if (err.response?.data?.message) {
         setError(err.response.data.message);
+      } else if (err.message?.includes('already reviewed')) {
+        setError('Ya has escrito una reseña para este álbum');
       } else {
         setError('Error al publicar la reseña. Inténtalo de nuevo.');
       }
-    } finally {
-      setIsSubmitting(false);
     }
   };
+
+  // Loading state
+  if (albumLoading) {
+    return (
+      <div style={{
+        width: '100%',
+        minHeight: 'calc(100vh - 80px)',
+        backgroundColor: '#2a2a2a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ color: 'white', fontSize: '1.5rem' }}>
+          Cargando álbum...
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (albumError || !album) {
+    return (
+      <div style={{
+        width: '100%',
+        minHeight: 'calc(100vh - 80px)',
+        backgroundColor: '#2a2a2a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ color: 'white', marginBottom: '1rem' }}>
+            Álbum no encontrado
+          </h1>
+          <p style={{ color: '#888', marginBottom: '2rem' }}>
+            No se puede escribir una reseña para un álbum que no existe.
+          </p>
+          <button 
+            onClick={() => navigate('/')}
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#646cff',
+              color: 'white',
+              borderRadius: '8px',
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            Volver al Inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -107,20 +177,27 @@ const WriteReviewPage = () => {
           marginBottom: '2rem'
         }}>
           <img 
-            src={album.portada_url}
-            alt={album.titulo}
+            src={album.cover_image || `https://via.placeholder.com/80x80?text=${encodeURIComponent(album.title)}`}
+            alt={album.title}
             style={{
               width: '80px',
               height: '80px',
-              borderRadius: '4px'
+              borderRadius: '4px',
+              objectFit: 'cover'
+            }}
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = `https://via.placeholder.com/80x80?text=${encodeURIComponent(album.title)}`;
             }}
           />
           <div>
             <h3 style={{ color: 'white', margin: 0, marginBottom: '0.25rem' }}>
-              {album.titulo}
+              {album.title}
             </h3>
-            <p style={{ color: '#888', margin: 0 }}>
-              {album.artista}
+            <p style={{ color: '#888', margin: 0, marginBottom: '0.25rem' }}>
+              {album.artist_name || 'Artista desconocido'}
+            </p>
+            <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>
+              {album.release_year} • {album.genre_name || 'Género desconocido'}
             </p>
           </div>
         </div>
@@ -128,10 +205,11 @@ const WriteReviewPage = () => {
         {error && (
           <div style={{
             padding: '1rem',
-            backgroundColor: '#ff4444',
+            backgroundColor: '#dc3545',
             color: 'white',
             borderRadius: '8px',
-            marginBottom: '1rem'
+            marginBottom: '1rem',
+            border: '1px solid #c82333'
           }}>
             {error}
           </div>
@@ -160,7 +238,8 @@ const WriteReviewPage = () => {
             <div style={{ 
               display: 'flex', 
               gap: '0.5rem',
-              marginBottom: '0.5rem'
+              marginBottom: '0.5rem',
+              flexWrap: 'wrap'
             }}>
               {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
                 <button
@@ -179,6 +258,18 @@ const WriteReviewPage = () => {
                     fontSize: '1.25rem',
                     transition: 'all 0.2s'
                   }}
+                  onMouseEnter={(e) => {
+                    if (formData.rating < rating) {
+                      e.currentTarget.style.borderColor = '#ffd700';
+                      e.currentTarget.style.color = '#ffd700';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (formData.rating < rating) {
+                      e.currentTarget.style.borderColor = '#333';
+                      e.currentTarget.style.color = '#666';
+                    }
+                  }}
                 >
                   {rating}
                 </button>
@@ -186,12 +277,16 @@ const WriteReviewPage = () => {
             </div>
             
             {formData.rating > 0 && (
-              <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
-                {formData.rating >= 9 ? '¡Obra maestra!' :
-                 formData.rating >= 7 ? 'Muy bueno' :
-                 formData.rating >= 5 ? 'Decente' :
-                 formData.rating >= 3 ? 'Flojo' : 'Malo'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ color: '#ffd700', fontSize: '1.1rem' }}>★</span>
+                <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
+                  {formData.rating}/10 - 
+                  {formData.rating >= 9 ? ' ¡Obra maestra!' :
+                   formData.rating >= 7 ? ' Muy bueno' :
+                   formData.rating >= 5 ? ' Decente' :
+                   formData.rating >= 3 ? ' Flojo' : ' Malo'}
+                </p>
+              </div>
             )}
           </div>
 
@@ -217,6 +312,7 @@ const WriteReviewPage = () => {
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Resume tu opinión en una línea..."
+              maxLength={100}
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -227,6 +323,14 @@ const WriteReviewPage = () => {
                 fontSize: '1rem'
               }}
             />
+            <p style={{ 
+              color: '#888', 
+              fontSize: '0.85rem', 
+              marginTop: '0.5rem',
+              marginBottom: 0
+            }}>
+              {formData.title.length}/100 caracteres (mínimo 3)
+            </p>
           </div>
 
           {/* Contenido de la Reseña */}
@@ -250,7 +354,15 @@ const WriteReviewPage = () => {
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               rows={12}
-              placeholder="Comparte tu opinión sobre este álbum. ¿Qué te gustó? ¿Qué no te gustó? ¿A quién se lo recomendarías?"
+              maxLength={2000}
+              placeholder="Comparte tu opinión sobre este álbum. ¿Qué te gustó? ¿Qué no te gustó? ¿A quién se lo recomendarías?
+
+Habla sobre:
+- Las canciones que más te llamaron la atención
+- La producción y calidad del sonido
+- El estilo y género musical
+- Cómo se compara con otros trabajos del artista
+- Tu experiencia personal al escucharlo"
               style={{
                 width: '100%',
                 padding: '0.75rem',
@@ -260,7 +372,8 @@ const WriteReviewPage = () => {
                 color: 'white',
                 fontSize: '1rem',
                 fontFamily: 'inherit',
-                resize: 'vertical'
+                resize: 'vertical',
+                lineHeight: '1.5'
               }}
             />
             <p style={{ 
@@ -269,7 +382,7 @@ const WriteReviewPage = () => {
               marginTop: '0.5rem',
               marginBottom: 0
             }}>
-              {formData.content.length} caracteres (mínimo 10)
+              {formData.content.length}/2000 caracteres (mínimo 10)
             </p>
           </div>
 
@@ -296,19 +409,20 @@ const WriteReviewPage = () => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || formData.rating === 0 || formData.title.trim().length < 3 || formData.content.trim().length < 10}
+              disabled={createReviewMutation.isPending || formData.rating === 0 || formData.title.trim().length < 3 || formData.content.trim().length < 10}
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: '8px',
                 border: 'none',
                 backgroundColor: (formData.rating > 0 && formData.title.trim().length >= 3 && formData.content.trim().length >= 10) ? '#646cff' : '#333',
                 color: 'white',
-                cursor: (formData.rating > 0 && formData.title.trim().length >= 3 && formData.content.trim().length >= 10) ? 'pointer' : 'not-allowed',
+                cursor: (formData.rating > 0 && formData.title.trim().length >= 3 && formData.content.trim().length >= 10) && !createReviewMutation.isPending ? 'pointer' : 'not-allowed',
                 fontSize: '1rem',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                opacity: createReviewMutation.isPending ? 0.7 : 1
               }}
             >
-              {isSubmitting ? 'Publicando...' : 'Publicar Reseña'}
+              {createReviewMutation.isPending ? 'Publicando...' : 'Publicar Reseña'}
             </button>
           </div>
         </form>
