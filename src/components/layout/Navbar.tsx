@@ -1,18 +1,46 @@
 // /src/components/layout/Navbar.tsx
 
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { FaMusic } from 'react-icons/fa6';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { FaMusic, FaChevronDown } from 'react-icons/fa6';
 import { useAuthStore } from '../../store/auth.store';
 import { NotificationsDropdown } from '../notifications/NotificationsDropdown';
 
+interface Album {
+  id: number;
+  title: string;
+  artist: string;
+}
+
+const albums: Album[] = [
+  { id: 1, title: 'Abbey Road', artist: 'The Beatles' },
+  { id: 2, title: 'The Dark Side of the Moon', artist: 'Pink Floyd' },
+  { id: 3, title: 'Thriller', artist: 'Michael Jackson' }
+];
+
 export const Navbar = () => {
+  const [showAlbumsMenu, setShowAlbumsMenu] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
+  };
+
+  const handleAlbumClick = (albumId: number) => {
+    navigate(`/album/${albumId}`);
+    setShowAlbumsMenu(false);
+  };
+
+  const handleReviewClick = (albumId: number) => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    navigate(`/album/${albumId}/review`);
+    setShowAlbumsMenu(false);
   };
 
   return (
@@ -69,6 +97,115 @@ export const Navbar = () => {
           }}>
             Charts
           </Link>
+          
+          {/* Menú Álbumes con Dropdown */}
+          <div 
+            style={{ position: 'relative' }}
+            onMouseEnter={() => setShowAlbumsMenu(true)}
+            onMouseLeave={() => setShowAlbumsMenu(false)}
+          >
+            <button style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              background: 'none',
+              border: 'none',
+              color: 'white',
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              transition: 'color 0.2s',
+              padding: '0.25rem 0'
+            }}>
+              Álbumes
+              <FaChevronDown style={{ fontSize: '0.7rem' }} />
+            </button>
+            
+            {/* Dropdown Menu */}
+            {showAlbumsMenu && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                left: 0,
+                backgroundColor: '#2a2a2a',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                padding: '0.5rem 0',
+                minWidth: '280px',
+                zIndex: 1000,
+                marginTop: '0.5rem'
+              }}>
+                {albums.map(album => (
+                  <div key={album.id} style={{
+                    padding: '0.75rem 1rem',
+                    borderBottom: album.id < albums.length ? '1px solid #333' : 'none'
+                  }}>
+                    <div style={{
+                      fontWeight: '500',
+                      marginBottom: '0.25rem',
+                      color: 'white',
+                      fontSize: '0.9rem'
+                    }}>
+                      {album.title}
+                    </div>
+                    <div style={{
+                      fontSize: '0.8rem',
+                      color: '#ccc',
+                      marginBottom: '0.5rem'
+                    }}>
+                      {album.artist}
+                    </div>
+                    <div style={{
+                      display: 'flex',
+                      gap: '0.5rem'
+                    }}>
+                      <button
+                        onClick={() => handleAlbumClick(album.id)}
+                        style={{
+                          backgroundColor: '#007bff',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#0056b3';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#007bff';
+                        }}
+                      >
+                        Ver Álbum
+                      </button>
+                      <button
+                        onClick={() => handleReviewClick(album.id)}
+                        style={{
+                          backgroundColor: isAuthenticated ? '#28a745' : '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '0.25rem 0.5rem',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = isAuthenticated ? '#1e7e34' : '#5a6268';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = isAuthenticated ? '#28a745' : '#6c757d';
+                        }}
+                      >
+                        {isAuthenticated ? 'Escribir Reseña' : 'Inicia Sesión'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
