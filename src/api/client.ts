@@ -1,9 +1,9 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// Hardcoded for production deployment - Render Static Sites env vars issue
+export const API_BASE_URL = 'https://bd-y-pw.onrender.com';
 
 export const authAPI = {
   async login(payload: { email: string; password: string }) {
     const url = `${API_BASE_URL}/api/v1/auth/login`;
-    // Debug logging
     console.log('[authAPI.login] URL:', url);
     console.log('[authAPI.login] Method: POST');
     console.log('[authAPI.login] Payload:', payload);
