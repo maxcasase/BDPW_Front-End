@@ -7,7 +7,7 @@ import axios from 'axios';
 // 1. URL base de la API
 // Esta será la dirección de tu backend en Node.js
 // Usamos variables de entorno (.env) para cumplir con RNF 76 (entornos separados)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = 'https://bd-y-pw.onrender.com/api';
 
 // 2. Creación de la instancia de Axios
 // Exportamos 'api' para usarla en toda la aplicación
