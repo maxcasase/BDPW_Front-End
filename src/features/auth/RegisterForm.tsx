@@ -1,7 +1,7 @@
 // /src/features/auth/RegisterForm.tsx
 
 import React, { useState } from 'react';
-// No importamos NADA más, así que no habrá errores de módulos.
+import { registerUser, type IRegisterCredentials } from '../../api/authApi';
 
 // --- Estilos (los mismos de antes) ---
 const formStyle: React.CSSProperties = {
@@ -47,7 +47,7 @@ export const RegisterForm = () => {
   
   // 2. Estados para errores y carga
   const [formErrors, setFormErrors] = useState<{ email?: string; password?: string; username?: string }>({});
-  const [apiError, setApiError] = useState<string | null>(null); // Para errores simulados
+  const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // 3. Función de validación manual
@@ -70,7 +70,7 @@ export const RegisterForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 4. Función de envío (handleSubmit) SIMULADA
+  // 4. Función de envío real con API
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setApiError(null);
@@ -81,29 +81,41 @@ export const RegisterForm = () => {
     
     setIsSubmitting(true);
     
-    // --- SIMULACIÓN DE LLAMADA A LA API ---
-    // Aquí es donde, más adelante, llamaremos a la API real.
-    // Por ahora, solo simulamos una espera.
-    console.log('Enviando datos de registro:', { username, email, password });
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    
-    // Simulación de un error (descomenta para probar)
-    // setApiError('El email ya está en uso (error simulado)');
-    // setIsSubmitting(false);
-    // return;
-
-    // Simulación de éxito
-    console.log('¡Registro exitoso! (simulado)');
-    setIsSubmitting(false);
-    
-    // Aquí es donde (más adelante) guardaríamos el token y redirigiríamos.
-    alert('¡Cuenta creada exitosamente! (Simulado)');
+    try {
+      // Llamada real a la API del backend
+      console.log('Enviando datos de registro:', { username, email, password });
+      const response = await registerUser({ username, email, password });
+      
+      console.log('¡Registro exitoso!', response);
+      
+      // Guardar token en localStorage (opcional)
+      localStorage.setItem('token', response.token);
+      
+      alert('¡Cuenta creada exitosamente!');
+      
+      // Limpiar formulario
+      setUsername('');
+      setEmail('');
+      setPassword('');
+      
+    } catch (error: any) {
+      console.error('Error en registro:', error);
+      
+      // Manejar diferentes tipos de errores
+      if (error.response?.data?.message) {
+        setApiError(error.response.data.message);
+      } else {
+        setApiError('Error en el registro. Inténtalo de nuevo.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // 5. Renderizado (JSX)
   return (
     <form onSubmit={handleSubmit} style={formStyle}>
-      {/* Error de API Simulado */}
+      {/* Error de API */}
       {apiError && (
         <div style={{...errorStyle, padding: '1rem', backgroundColor: '#ffebeB'}}>
           {apiError}
