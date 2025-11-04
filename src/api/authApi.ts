@@ -16,8 +16,20 @@ export interface ILoginResponse {
   user: IUser;
 }
 
-// 3. Creamos la función API asíncrona
-// Esta es la función que llamará nuestro formulario
+// 3. Definimos los datos para registro
+export interface IRegisterCredentials {
+  username: string;
+  email: string;
+  password: string;
+}
+
+// 4. Definimos la respuesta del registro (igual que login)
+export interface IRegisterResponse {
+  token: string;
+  user: IUser;
+}
+
+// 5. Función de login
 export const loginUser = async (
   credentials: ILoginCredentials
 ): Promise<ILoginResponse> => {
@@ -27,4 +39,14 @@ export const loginUser = async (
   return data;
 };
 
-// (En el futuro, aquí también podríamos añadir 'registerUser', 'getCurrentUser', etc.)
+// 6. Función de registro
+export const registerUser = async (
+  credentials: IRegisterCredentials
+): Promise<IRegisterResponse> => {
+  
+  // Hacemos la llamada POST al endpoint '/v1/auth/register'
+  const { data } = await api.post<IRegisterResponse>('/v1/auth/register', credentials);
+  return data;
+};
+
+// (En el futuro, aquí también podríamos añadir 'getCurrentUser', etc.)
