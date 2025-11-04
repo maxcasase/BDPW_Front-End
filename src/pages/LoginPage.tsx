@@ -43,7 +43,6 @@ const LoginPage = () => {
   return (
     <div style={pageStyle}>
       <div style={boxStyle}>
-        [cite_start]{/* Encabezado del Mockup  */}
         <div style={logoStyle}>
           <FaMusic />
           <strong>MPT - Música Para Todos</strong>
@@ -79,5 +78,6 @@ const LoginPage = () => {
     </div>
   );
 };
+
 
 export default LoginPage;
