@@ -5,28 +5,26 @@ export const API_BASE_URL =
 
 export const http = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: false,
+  timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
-  },
+    'Content-Type': 'application/json'
+  }
 });
 
-// Interceptor para agregar JWT token si existe
+// Interceptor para agregar JWT automáticamente
 http.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  if (token) {
-    config.headers = config.headers || {};
+  if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-// Interceptor para manejo de errores
+// Interceptor para manejar errores de auth
 http.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Token expirado o inválido
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
