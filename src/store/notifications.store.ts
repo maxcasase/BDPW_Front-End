@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { notificationsAPI } from '../api/client';
+import { notificationsAPI } from '../api/http';
 
 export interface INotification {
   id: string;
