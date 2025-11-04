@@ -3,21 +3,22 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FaStar } from 'react-icons/fa';
+import { createReview } from '../api/reviewsApi';
 
 const WriteReviewPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
-    puntuacion: 0,
-    titulo: '',
-    contenido: ''
+    rating: 0,
+    title: '',
+    content: ''
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Datos del álbum (simulados)
+  // Datos del álbum (simulados - en el futuro se cargarían de la API)
   const album = {
     id: id,
     titulo: 'Abbey Road',
@@ -25,31 +26,55 @@ const WriteReviewPage = () => {
     portada_url: 'https://via.placeholder.com/150'
   };
 
+  const validateForm = () => {
+    if (formData.rating === 0) {
+      setError('Debes seleccionar una calificación');
+      return false;
+    }
+    if (formData.title.trim().length < 3) {
+      setError('El título debe tener al menos 3 caracteres');
+      return false;
+    }
+    if (formData.content.trim().length < 10) {
+      setError('La reseña debe tener al menos 10 caracteres');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.puntuacion === 0) {
-      setError('Debes seleccionar una calificación');
-      return;
-    }
-
-    if (!formData.contenido.trim()) {
-      setError('Debes escribir el contenido de tu reseña');
-      return;
-    }
-
     setError(null);
+
+    if (!validateForm()) {
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // TODO: Llamada a la API
-      console.log('Enviando reseña:', formData);
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Llamada real a la API
+      const reviewData = {
+        album_id: parseInt(id || '1'),
+        rating: formData.rating,
+        title: formData.title.trim(),
+        content: formData.content.trim()
+      };
+
+      console.log('Enviando reseña:', reviewData);
+      const response = await createReview(reviewData);
+      console.log('¡Reseña creada!', response);
       
       // Redirigir al álbum
       navigate(`/album/${id}`);
-    } catch (err) {
-      setError('Error al publicar la reseña');
+    } catch (err: any) {
+      console.error('Error al crear reseña:', err);
+      
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Error al publicar la reseña. Inténtalo de nuevo.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -141,14 +166,14 @@ const WriteReviewPage = () => {
                 <button
                   key={rating}
                   type="button"
-                  onClick={() => setFormData({ ...formData, puntuacion: rating })}
+                  onClick={() => setFormData({ ...formData, rating })}
                   style={{
                     width: '50px',
                     height: '50px',
                     borderRadius: '8px',
-                    border: formData.puntuacion >= rating ? '2px solid #ffd700' : '1px solid #333',
-                    backgroundColor: formData.puntuacion >= rating ? '#ffd70033' : '#2a2a2a',
-                    color: formData.puntuacion >= rating ? '#ffd700' : '#666',
+                    border: formData.rating >= rating ? '2px solid #ffd700' : '1px solid #333',
+                    backgroundColor: formData.rating >= rating ? '#ffd70033' : '#2a2a2a',
+                    color: formData.rating >= rating ? '#ffd700' : '#666',
                     cursor: 'pointer',
                     fontWeight: 'bold',
                     fontSize: '1.25rem',
@@ -160,12 +185,12 @@ const WriteReviewPage = () => {
               ))}
             </div>
             
-            {formData.puntuacion > 0 && (
+            {formData.rating > 0 && (
               <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
-                {formData.puntuacion >= 9 ? '¡Obra maestra!' :
-                 formData.puntuacion >= 7 ? 'Muy bueno' :
-                 formData.puntuacion >= 5 ? 'Decente' :
-                 formData.puntuacion >= 3 ? 'Flojo' : 'Malo'}
+                {formData.rating >= 9 ? '¡Obra maestra!' :
+                 formData.rating >= 7 ? 'Muy bueno' :
+                 formData.rating >= 5 ? 'Decente' :
+                 formData.rating >= 3 ? 'Flojo' : 'Malo'}
               </p>
             )}
           </div>
@@ -185,12 +210,12 @@ const WriteReviewPage = () => {
               fontSize: '1.1rem',
               fontWeight: 'bold'
             }}>
-              Título de tu reseña (opcional)
+              Título de tu reseña *
             </label>
             <input
               type="text"
-              value={formData.titulo}
-              onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Resume tu opinión en una línea..."
               style={{
                 width: '100%',
@@ -222,8 +247,8 @@ const WriteReviewPage = () => {
               Tu reseña *
             </label>
             <textarea
-              value={formData.contenido}
-              onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
+              value={formData.content}
+              onChange={(e) => setFormData({ ...formData, content: e.target.value })}
               rows={12}
               placeholder="Comparte tu opinión sobre este álbum. ¿Qué te gustó? ¿Qué no te gustó? ¿A quién se lo recomendarías?"
               style={{
@@ -244,7 +269,7 @@ const WriteReviewPage = () => {
               marginTop: '0.5rem',
               marginBottom: 0
             }}>
-              {formData.contenido.length} caracteres
+              {formData.content.length} caracteres (mínimo 10)
             </p>
           </div>
 
@@ -271,14 +296,14 @@ const WriteReviewPage = () => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || formData.puntuacion === 0 || !formData.contenido.trim()}
+              disabled={isSubmitting || formData.rating === 0 || formData.title.trim().length < 3 || formData.content.trim().length < 10}
               style={{
                 padding: '0.75rem 1.5rem',
                 borderRadius: '8px',
                 border: 'none',
-                backgroundColor: (formData.puntuacion > 0 && formData.contenido.trim()) ? '#646cff' : '#333',
+                backgroundColor: (formData.rating > 0 && formData.title.trim().length >= 3 && formData.content.trim().length >= 10) ? '#646cff' : '#333',
                 color: 'white',
-                cursor: (formData.puntuacion > 0 && formData.contenido.trim()) ? 'pointer' : 'not-allowed',
+                cursor: (formData.rating > 0 && formData.title.trim().length >= 3 && formData.content.trim().length >= 10) ? 'pointer' : 'not-allowed',
                 fontSize: '1rem',
                 fontWeight: 'bold'
               }}
