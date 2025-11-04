@@ -1,27 +1,46 @@
 // /src/pages/AlbumDetailPage.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaEdit, FaThumbsUp, FaThumbsDown, FaPlay, FaClock } from 'react-icons/fa';
+import { FaStar, FaEdit, FaThumbsUp, FaThumbsDown, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
+import { getReviewsByAlbum, deleteReview, type IReview } from '../api/reviewsApi';
 
 const AlbumDetailPage = () => {
   const { id } = useParams<{ id: string }>();
   const [userRating, setUserRating] = useState<number>(0);
   const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviews, setReviews] = useState<IReview[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
 
-  // Datos simulados del álbum
+  // Obtener usuario actual del token (simplificado)
+  const getCurrentUser = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return { id: payload.id };
+    } catch {
+      return null;
+    }
+  };
+
+  const currentUser = getCurrentUser();
+
+  // Datos simulados del álbum (en el futuro se cargarían de la API)
   const album = {
     id: id,
     titulo: 'Abbey Road',
     artista: 'The Beatles',
     fecha_lanzamiento: '1969-09-26',
     genero_principal: 'Rock',
-    duracion_total: 2869, // segundos
+    duracion_total: 2869,
     portada_url: 'https://via.placeholder.com/300',
     descripcion: 'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
     sello_discografico: 'Apple Records',
     puntuacion_promedio: 9.2,
-    total_resenas: 1247,
+    total_resenas: reviews.length,
     canciones: [
       { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
       { numero_pista: 2, titulo: 'Something', duracion: 182 },
@@ -29,6 +48,44 @@ const AlbumDetailPage = () => {
       { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
       { numero_pista: 5, titulo: 'Octopus\'s Garden', duracion: 171 },
     ]
+  };
+
+  // Cargar reviews al montar el componente
+  useEffect(() => {
+    const loadReviews = async () => {
+      if (!id) return;
+      
+      try {
+        setLoadingReviews(true);
+        const response = await getReviewsByAlbum(parseInt(id));
+        setReviews(response.reviews);
+      } catch (error) {
+        console.error('Error cargando reviews:', error);
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    loadReviews();
+  }, [id]);
+
+  const handleDeleteReview = async (reviewId: number) => {
+    if (!confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
+      return;
+    }
+
+    try {
+      setDeletingReviewId(reviewId);
+      await deleteReview(reviewId);
+      
+      // Actualizar lista local
+      setReviews(reviews.filter(review => review.id !== reviewId));
+    } catch (error: any) {
+      console.error('Error eliminando review:', error);
+      alert('Error al eliminar la reseña');
+    } finally {
+      setDeletingReviewId(null);
+    }
   };
 
   const formatDuration = (seconds: number) => {
@@ -46,6 +103,17 @@ const AlbumDetailPage = () => {
     setUserRating(rating);
     setShowReviewForm(true);
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // Verificar si el usuario actual ya hizo una review
+  const userReview = currentUser ? reviews.find(review => review.user_id === currentUser.id) : null;
 
   return (
     <div style={{
@@ -130,48 +198,56 @@ const AlbumDetailPage = () => {
                   color: '#ffd700',
                   lineHeight: 1
                 }}>
-                  {album.puntuacion_promedio}
+                  {reviews.length > 0 ? 
+                    (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) 
+                    : '0.0'
+                  }
                 </div>
                 <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                  {album.total_resenas} reseñas
+                  {reviews.length} reseñas
                 </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: '#b0b0b0', marginBottom: '0.5rem' }}>
-                  Tu calificación:
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
-                    <button
-                      key={rating}
-                      onClick={() => handleRatingClick(rating)}
+              
+              {/* Botón de escribir reseña */}
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                {currentUser ? (
+                  userReview ? (
+                    <div style={{ color: '#888' }}>Ya escribiste una reseña</div>
+                  ) : (
+                    <Link 
+                      to={`/album/${id}/review`}
                       style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '4px',
-                        border: userRating >= rating ? '2px solid #ffd700' : '1px solid #333',
-                        backgroundColor: userRating >= rating ? '#ffd70022' : '#2a2a2a',
-                        color: userRating >= rating ? '#ffd700' : '#666',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        fontSize: '1rem',
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#ffd70033';
-                        e.currentTarget.style.borderColor = '#ffd700';
-                      }}
-                      onMouseLeave={(e) => {
-                        if (userRating < rating) {
-                          e.currentTarget.style.backgroundColor = '#2a2a2a';
-                          e.currentTarget.style.borderColor = '#333';
-                        }
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.75rem 1.5rem',
+                        backgroundColor: '#646cff',
+                        color: 'white',
+                        borderRadius: '8px',
+                        textDecoration: 'none',
+                        fontWeight: 'bold'
                       }}
                     >
-                      {rating}
-                    </button>
-                  ))}
-                </div>
+                      <FaEdit /> Escribir Reseña
+                    </Link>
+                  )
+                ) : (
+                  <Link 
+                    to="/login"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.75rem 1.5rem',
+                      backgroundColor: '#333',
+                      color: 'white',
+                      borderRadius: '8px',
+                      textDecoration: 'none'
+                    }}
+                  >
+                    Inicia sesión para reseñar
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -233,54 +309,160 @@ const AlbumDetailPage = () => {
           </div>
         </section>
 
-        {/* Formulario de Reseña */}
-        {showReviewForm && (
-          <section style={{ marginBottom: '3rem' }}>
-            <h2 style={{ color: 'white', marginBottom: '1rem' }}>
-              Escribe tu reseña
-            </h2>
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '2rem',
-              borderRadius: '8px',
-              border: '1px solid #333'
-            }}>
-              <Link 
-                to={`/album/${id}/review`}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.75rem 1.5rem',
-                  backgroundColor: '#646cff',
-                  color: 'white',
-                  borderRadius: '8px',
-                  textDecoration: 'none',
-                  fontWeight: 'bold'
-                }}
-              >
-                <FaEdit /> Escribir Reseña Completa
-              </Link>
-            </div>
-          </section>
-        )}
-
         {/* Sección de Reseñas */}
         <section>
           <h2 style={{ color: 'white', marginBottom: '1rem' }}>
             Reseñas de la Comunidad
           </h2>
-          <div style={{
-            backgroundColor: '#1a1a1a',
-            padding: '2rem',
-            borderRadius: '8px',
-            border: '1px solid #333',
-            textAlign: 'center'
-          }}>
-            <p style={{ color: '#888' }}>
-              Cargando reseñas...
-            </p>
-          </div>
+          
+          {loadingReviews ? (
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              padding: '2rem',
+              borderRadius: '8px',
+              border: '1px solid #333',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#888' }}>
+                Cargando reseñas...
+              </p>
+            </div>
+          ) : reviews.length === 0 ? (
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              padding: '2rem',
+              borderRadius: '8px',
+              border: '1px solid #333',
+              textAlign: 'center'
+            }}>
+              <p style={{ color: '#888', marginBottom: '1rem' }}>
+                Aún no hay reseñas para este álbum.
+              </p>
+              {currentUser && (
+                <Link 
+                  to={`/album/${id}/review`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.75rem 1.5rem',
+                    backgroundColor: '#646cff',
+                    color: 'white',
+                    borderRadius: '8px',
+                    textDecoration: 'none',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  <FaEdit /> ¡Sé el primero en reseñar!
+                </Link>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  style={{
+                    backgroundColor: '#1a1a1a',
+                    padding: '1.5rem',
+                    borderRadius: '8px',
+                    border: '1px solid #333'
+                  }}
+                >
+                  {/* Header de la reseña */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    marginBottom: '1rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        backgroundColor: '#646cff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 'bold'
+                      }}>
+                        {(review.profile_name || review.username || 'U')[0].toUpperCase()}
+                      </div>
+                      <div>
+                        <div style={{ color: 'white', fontWeight: 'bold' }}>
+                          {review.profile_name || review.username}
+                        </div>
+                        <div style={{ color: '#888', fontSize: '0.85rem' }}>
+                          {formatDate(review.created_at)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                      {/* Rating */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.25rem 0.75rem',
+                        backgroundColor: '#ffd70033',
+                        borderRadius: '20px',
+                        border: '1px solid #ffd700'
+                      }}>
+                        <FaStar color="#ffd700" size={12} />
+                        <span style={{ color: '#ffd700', fontWeight: 'bold' }}>
+                          {review.rating}/10
+                        </span>
+                      </div>
+                      
+                      {/* Botón eliminar (solo para el autor) */}
+                      {currentUser && currentUser.id === review.user_id && (
+                        <button
+                          onClick={() => handleDeleteReview(review.id)}
+                          disabled={deletingReviewId === review.id}
+                          style={{
+                            padding: '0.5rem',
+                            borderRadius: '4px',
+                            border: '1px solid #ff4444',
+                            backgroundColor: 'transparent',
+                            color: '#ff4444',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          {deletingReviewId === review.id ? '...' : <FaTrash size={12} />}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Título de la reseña */}
+                  {review.title && (
+                    <h3 style={{
+                      color: 'white',
+                      marginBottom: '0.75rem',
+                      fontSize: '1.2rem'
+                    }}>
+                      {review.title}
+                    </h3>
+                  )}
+
+                  {/* Contenido */}
+                  <p style={{
+                    color: '#b0b0b0',
+                    lineHeight: 1.6,
+                    margin: 0
+                  }}>
+                    {review.content}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </div>
