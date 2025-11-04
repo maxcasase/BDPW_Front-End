@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { FeatureCard } from '../components/ui/FeatureCard';
-import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/auth.store';
 
 interface Album {
   id: number;
@@ -42,7 +42,7 @@ const featuredAlbums: Album[] = [
 ];
 
 const HomePage = () => {
-  const { isAuthenticated } = useAuth();
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated);
   const navigate = useNavigate();
 
   const handleViewAlbum = (albumId: number) => {
