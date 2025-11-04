@@ -1,85 +1,38 @@
 // /src/pages/AlbumDetailPage.tsx
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaEdit, FaThumbsUp, FaThumbsDown, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
-import { getReviewsByAlbum, deleteReview, type IReview } from '../api/reviewsApi';
+import { FaStar, FaEdit, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
+import { useAlbum } from '../hooks/useAlbums';
+import { useAlbumReviews, useDeleteReview } from '../hooks/useReviews';
+import { useAuthStore } from '../store/auth.store';
+import type { Review } from '../interfaces/api';
 
 const AlbumDetailPage = () => {
   const { id } = useParams<{ id: string }>();
-  const [userRating, setUserRating] = useState<number>(0);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviews, setReviews] = useState<IReview[]>([]);
-  const [loadingReviews, setLoadingReviews] = useState(true);
-  const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
+  
+  // Estado de autenticación
+  const isAuthenticated = useAuthStore((state: any) => state.isAuthenticated);
+  const user = useAuthStore((state: any) => state.user);
+  
+  // Cargar datos del álbum
+  const { data: album, isLoading: albumLoading, error: albumError } = useAlbum(id!);
+  
+  // Cargar reseñas del álbum
+  const { data: reviews, isLoading: reviewsLoading, error: reviewsError } = useAlbumReviews(id!, { page: 1, limit: 20 });
+  
+  // Hook para eliminar reseña
+  const deleteReviewMutation = useDeleteReview();
 
-  // Obtener usuario actual del token (simplificado)
-  const getCurrentUser = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return { id: payload.id };
-    } catch {
-      return null;
-    }
-  };
-
-  const currentUser = getCurrentUser();
-
-  // Datos simulados del álbum (en el futuro se cargarían de la API)
-  const album = {
-    id: id,
-    titulo: 'Abbey Road',
-    artista: 'The Beatles',
-    fecha_lanzamiento: '1969-09-26',
-    genero_principal: 'Rock',
-    duracion_total: 2869,
-    portada_url: 'https://via.placeholder.com/300',
-    descripcion: 'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
-    sello_discografico: 'Apple Records',
-    puntuacion_promedio: 9.2,
-    total_resenas: reviews.length,
-    canciones: [
-      { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
-      { numero_pista: 2, titulo: 'Something', duracion: 182 },
-      { numero_pista: 3, titulo: 'Maxwell\'s Silver Hammer', duracion: 207 },
-      { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
-      { numero_pista: 5, titulo: 'Octopus\'s Garden', duracion: 171 },
-    ]
-  };
-
-  // Cargar reviews al montar el componente
-  useEffect(() => {
-    const loadReviews = async () => {
-      if (!id) return;
-      
-      try {
-        setLoadingReviews(true);
-        const response = await getReviewsByAlbum(parseInt(id));
-        setReviews(response.reviews);
-      } catch (error) {
-        console.error('Error cargando reviews:', error);
-      } finally {
-        setLoadingReviews(false);
-      }
-    };
-
-    loadReviews();
-  }, [id]);
-
-  const handleDeleteReview = async (reviewId: number) => {
+  const handleDeleteReview = async (reviewId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
       return;
     }
 
     try {
       setDeletingReviewId(reviewId);
-      await deleteReview(reviewId);
-      
-      // Actualizar lista local
-      setReviews(reviews.filter(review => review.id !== reviewId));
+      await deleteReviewMutation.mutateAsync(reviewId);
     } catch (error: any) {
       console.error('Error eliminando review:', error);
       alert('Error al eliminar la reseña');
@@ -99,11 +52,6 @@ const AlbumDetailPage = () => {
     return `${mins} min`;
   };
 
-  const handleRatingClick = (rating: number) => {
-    setUserRating(rating);
-    setShowReviewForm(true);
-  };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -112,8 +60,67 @@ const AlbumDetailPage = () => {
     });
   };
 
+  const formatRating = (rating?: number) => {
+    return rating ? rating.toFixed(1) : '0.0';
+  };
+
   // Verificar si el usuario actual ya hizo una review
-  const userReview = currentUser ? reviews.find(review => review.user_id === currentUser.id) : null;
+  const userReview = user && reviews ? 
+    reviews.find((review: Review) => review.user_id === user._id) : null;
+
+  // Loading state
+  if (albumLoading) {
+    return (
+      <div style={{
+        width: '100%',
+        minHeight: 'calc(100vh - 80px)',
+        backgroundColor: '#2a2a2a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ color: 'white', fontSize: '1.5rem' }}>
+          Cargando álbum...
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (albumError || !album) {
+    return (
+      <div style={{
+        width: '100%',
+        minHeight: 'calc(100vh - 80px)',
+        backgroundColor: '#2a2a2a',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <h1 style={{ color: 'white', marginBottom: '1rem' }}>
+            Álbum no encontrado
+          </h1>
+          <p style={{ color: '#888', marginBottom: '2rem' }}>
+            El álbum que buscas no existe o no está disponible.
+          </p>
+          <Link 
+            to="/"
+            style={{
+              padding: '0.75rem 1.5rem',
+              backgroundColor: '#646cff',
+              color: 'white',
+              borderRadius: '8px',
+              textDecoration: 'none',
+              fontWeight: 'bold'
+            }}
+          >
+            Volver al Inicio
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -136,12 +143,15 @@ const AlbumDetailPage = () => {
           {/* Portada */}
           <div>
             <img 
-              src={album.portada_url}
-              alt={album.titulo}
+              src={album.cover_image || `https://via.placeholder.com/300x300?text=${encodeURIComponent(album.title)}`}
+              alt={album.title}
               style={{
                 width: '100%',
                 borderRadius: '8px',
                 boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = `https://via.placeholder.com/300x300?text=${encodeURIComponent(album.title)}`;
               }}
             />
           </div>
@@ -149,7 +159,7 @@ const AlbumDetailPage = () => {
           {/* Información del Álbum */}
           <div>
             <p style={{ color: '#888', marginBottom: '0.5rem', textTransform: 'uppercase', fontSize: '0.85rem' }}>
-              {album.genero_principal}
+              {album.genre_name || 'Género desconocido'}
             </p>
             <h1 style={{ 
               color: 'white', 
@@ -157,7 +167,7 @@ const AlbumDetailPage = () => {
               marginBottom: '0.5rem',
               fontWeight: 'bold'
             }}>
-              {album.titulo}
+              {album.title}
             </h1>
             <h2 style={{ 
               color: '#b0b0b0', 
@@ -165,7 +175,7 @@ const AlbumDetailPage = () => {
               marginBottom: '1.5rem',
               fontWeight: 'normal'
             }}>
-              {album.artista}
+              {album.artist_name || 'Artista desconocido'}
             </h2>
 
             <div style={{ 
@@ -175,9 +185,13 @@ const AlbumDetailPage = () => {
               color: '#888',
               fontSize: '0.9rem'
             }}>
-              <span>📅 {new Date(album.fecha_lanzamiento).getFullYear()}</span>
-              <span><FaClock style={{ marginRight: '0.5rem' }} />{formatTotalDuration(album.duracion_total)}</span>
-              <span>🏢 {album.sello_discografico}</span>
+              <span>📅 {album.release_year}</span>
+              {album.duration && (
+                <span><FaClock style={{ marginRight: '0.5rem' }} />{formatTotalDuration(album.duration)}</span>
+              )}
+              {album.total_tracks && (
+                <span>🎵 {album.total_tracks} canciones</span>
+              )}
             </div>
 
             {/* Calificación Promedio */}
@@ -198,19 +212,16 @@ const AlbumDetailPage = () => {
                   color: '#ffd700',
                   lineHeight: 1
                 }}>
-                  {reviews.length > 0 ? 
-                    (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) 
-                    : '0.0'
-                  }
+                  {formatRating(album.average_rating)}
                 </div>
                 <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                  {reviews.length} reseñas
+                  {album.total_ratings || 0} reseñas
                 </div>
               </div>
               
               {/* Botón de escribir reseña */}
               <div style={{ flex: 1, textAlign: 'right' }}>
-                {currentUser ? (
+                {isAuthenticated ? (
                   userReview ? (
                     <div style={{ color: '#888' }}>Ya escribiste una reseña</div>
                   ) : (
@@ -251,63 +262,22 @@ const AlbumDetailPage = () => {
               </div>
             </div>
 
-            <p style={{ color: '#b0b0b0', lineHeight: 1.6 }}>
-              {album.descripcion}
-            </p>
+            {/* Información adicional de Discogs si está disponible */}
+            {album.discogs_release_id && (
+              <div style={{
+                padding: '1rem',
+                backgroundColor: '#1a1a1a',
+                borderRadius: '8px',
+                border: '1px solid #333',
+                marginBottom: '1.5rem'
+              }}>
+                <p style={{ color: '#888', fontSize: '0.9rem', margin: 0 }}>
+                  💵 ID Discogs: {album.discogs_release_id}
+                </p>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Lista de Canciones */}
-        <section style={{ marginBottom: '3rem' }}>
-          <h2 style={{ color: 'white', marginBottom: '1rem' }}>Canciones</h2>
-          <div style={{
-            backgroundColor: '#1a1a1a',
-            borderRadius: '8px',
-            border: '1px solid #333'
-          }}>
-            {album.canciones.map((cancion, index) => (
-              <div
-                key={cancion.numero_pista}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '40px 1fr 80px 40px',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '1rem',
-                  borderBottom: index < album.canciones.length - 1 ? '1px solid #333' : 'none',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <span style={{ color: '#888', textAlign: 'center' }}>
-                  {cancion.numero_pista}
-                </span>
-                <span style={{ color: 'white' }}>
-                  {cancion.titulo}
-                </span>
-                <span style={{ color: '#888', fontSize: '0.9rem' }}>
-                  {formatDuration(cancion.duracion)}
-                </span>
-                <button style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  border: '1px solid #646cff',
-                  backgroundColor: 'transparent',
-                  color: '#646cff',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FaPlay size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
 
         {/* Sección de Reseñas */}
         <section>
@@ -315,7 +285,19 @@ const AlbumDetailPage = () => {
             Reseñas de la Comunidad
           </h2>
           
-          {loadingReviews ? (
+          {reviewsError && (
+            <div style={{
+              backgroundColor: '#d32f2f',
+              color: 'white',
+              padding: '1rem',
+              borderRadius: '8px',
+              marginBottom: '1rem'
+            }}>
+              Error al cargar reseñas. Verifica la conexión.
+            </div>
+          )}
+          
+          {reviewsLoading ? (
             <div style={{
               backgroundColor: '#1a1a1a',
               padding: '2rem',
@@ -327,7 +309,7 @@ const AlbumDetailPage = () => {
                 Cargando reseñas...
               </p>
             </div>
-          ) : reviews.length === 0 ? (
+          ) : !reviews || reviews.length === 0 ? (
             <div style={{
               backgroundColor: '#1a1a1a',
               padding: '2rem',
@@ -338,7 +320,7 @@ const AlbumDetailPage = () => {
               <p style={{ color: '#888', marginBottom: '1rem' }}>
                 Aún no hay reseñas para este álbum.
               </p>
-              {currentUser && (
+              {isAuthenticated && !userReview && (
                 <Link 
                   to={`/album/${id}/review`}
                   style={{
@@ -359,9 +341,9 @@ const AlbumDetailPage = () => {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {reviews.map((review) => (
+              {reviews.map((review: Review) => (
                 <div
-                  key={review.id}
+                  key={review._id}
                   style={{
                     backgroundColor: '#1a1a1a',
                     padding: '1.5rem',
@@ -381,18 +363,20 @@ const AlbumDetailPage = () => {
                         width: '40px',
                         height: '40px',
                         borderRadius: '50%',
-                        backgroundColor: '#646cff',
+                        backgroundColor: review.avatar_url ? 'transparent' : '#646cff',
+                        backgroundImage: review.avatar_url ? `url(${review.avatar_url})` : 'none',
+                        backgroundSize: 'cover',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         color: 'white',
                         fontWeight: 'bold'
                       }}>
-                        {(review.profile_name || review.username || 'U')[0].toUpperCase()}
+                        {!review.avatar_url && (review.profile_name || review.username || 'U')[0].toUpperCase()}
                       </div>
                       <div>
                         <div style={{ color: 'white', fontWeight: 'bold' }}>
-                          {review.profile_name || review.username}
+                          {review.profile_name || review.username || 'Usuario anónimo'}
                         </div>
                         <div style={{ color: '#888', fontSize: '0.85rem' }}>
                           {formatDate(review.created_at)}
@@ -418,23 +402,23 @@ const AlbumDetailPage = () => {
                       </div>
                       
                       {/* Botón eliminar (solo para el autor) */}
-                      {currentUser && currentUser.id === review.user_id && (
+                      {user && user._id === review.user_id && (
                         <button
-                          onClick={() => handleDeleteReview(review.id)}
-                          disabled={deletingReviewId === review.id}
+                          onClick={() => handleDeleteReview(review._id)}
+                          disabled={deletingReviewId === review._id}
                           style={{
                             padding: '0.5rem',
                             borderRadius: '4px',
                             border: '1px solid #ff4444',
                             backgroundColor: 'transparent',
                             color: '#ff4444',
-                            cursor: 'pointer',
+                            cursor: deletingReviewId === review._id ? 'not-allowed' : 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center'
                           }}
                         >
-                          {deletingReviewId === review.id ? '...' : <FaTrash size={12} />}
+                          {deletingReviewId === review._id ? '...' : <FaTrash size={12} />}
                         </button>
                       )}
                     </div>
@@ -459,6 +443,28 @@ const AlbumDetailPage = () => {
                   }}>
                     {review.content}
                   </p>
+
+                  {/* Likes/Dislikes si están disponibles */}
+                  {(review.likes_count || review.dislikes_count) && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '1rem',
+                      marginTop: '1rem',
+                      paddingTop: '1rem',
+                      borderTop: '1px solid #333'
+                    }}>
+                      {review.likes_count > 0 && (
+                        <span style={{ color: '#888', fontSize: '0.9rem' }}>
+                          👍 {review.likes_count}
+                        </span>
+                      )}
+                      {review.dislikes_count > 0 && (
+                        <span style={{ color: '#888', fontSize: '0.9rem' }}>
+                          👎 {review.dislikes_count}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
