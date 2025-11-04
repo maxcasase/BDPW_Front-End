@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { type IUser } from '../interfaces/user.interfaces';
-import { authAPI } from '../api/client';
+import { authAPI } from '../api/http';
 
 interface AuthState {
   token: string | null;
