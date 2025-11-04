@@ -1,11 +1,8 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { http } from '../lib/http';
-import type { Album, PaginationParams, SearchParams } from '../interfaces/api';
+import type { Album } from '../interfaces/api';
 
-// Listar álbumes con paginación
-export function useAlbums(params: PaginationParams = {}) {
-  const { page = 1, limit = 12 } = params;
-  
+export function useAlbums(page = 1, limit = 12) {
   return useQuery({
     queryKey: ['albums', page, limit],
     queryFn: async () => {
@@ -18,7 +15,6 @@ export function useAlbums(params: PaginationParams = {}) {
   });
 }
 
-// Obtener álbum específico
 export function useAlbum(id: string) {
   return useQuery({
     queryKey: ['album', id],
@@ -27,66 +23,33 @@ export function useAlbum(id: string) {
       const { data } = await http.get<Album>(`/api/albums/${id}`);
       return data;
     },
-    staleTime: 10 * 60 * 1000, // 10 minutos
+    staleTime: 2 * 60 * 1000, // 2 minutos
   });
 }
 
-// Buscar álbumes
-export function useSearchAlbums(params: SearchParams) {
-  const { query, page = 1, limit = 12 } = params;
-  
+export function useSearchAlbums(query: string, page = 1, limit = 12) {
   return useQuery({
     queryKey: ['albums', 'search', query, page, limit],
-    enabled: Boolean(query && query.trim().length > 0),
+    enabled: Boolean(query?.trim()),
     queryFn: async () => {
       const { data } = await http.get<Album[]>('/api/albums/search', {
         params: { q: query, page, limit }
       });
       return data;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutos
+    staleTime: 1 * 60 * 1000, // 1 minuto
   });
 }
 
-// Álbumes de un artista específico
-export function useArtistAlbums(artistId: string, params: PaginationParams = {}) {
-  const { page = 1, limit = 12 } = params;
-  
+export function useTopAlbums(limit = 10) {
   return useQuery({
-    queryKey: ['albums', 'artist', artistId, page, limit],
-    enabled: Boolean(artistId),
+    queryKey: ['albums', 'top', limit],
     queryFn: async () => {
-      const { data } = await http.get<Album[]>(`/api/artists/${artistId}/albums`, {
-        params: { page, limit }
+      const { data } = await http.get<Album[]>('/api/albums/top', {
+        params: { limit }
       });
       return data;
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutos
   });
-}
-
-// Álbumes por género
-export function useGenreAlbums(genreId: string, params: PaginationParams = {}) {
-  const { page = 1, limit = 12 } = params;
-  
-  return useQuery({
-    queryKey: ['albums', 'genre', genreId, page, limit],
-    enabled: Boolean(genreId),
-    queryFn: async () => {
-      const { data } = await http.get<Album[]>(`/api/genres/${genreId}/albums`, {
-        params: { page, limit }
-      });
-      return data;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-// Hook para refrescar álbumes
-export function useRefreshAlbums() {
-  const queryClient = useQueryClient();
-  
-  return () => {
-    queryClient.invalidateQueries({ queryKey: ['albums'] });
-  };
 }
