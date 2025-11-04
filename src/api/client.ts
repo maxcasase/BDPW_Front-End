@@ -2,31 +2,43 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 
 export const authAPI = {
   async login(payload: { email: string; password: string }) {
-    const res = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    const url = `${API_BASE_URL}/api/v1/auth/login`;
+    // Debug logging
+    console.log('[authAPI.login] URL:', url);
+    console.log('[authAPI.login] Method: POST');
+    console.log('[authAPI.login] Payload:', payload);
+
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      credentials: 'include',
     });
-    if (!res.ok) throw new Error('Login inválido');
-    return res.json();
+
+    console.log('[authAPI.login] Status:', res.status);
+    const data = await res.json().catch(() => null);
+    console.log('[authAPI.login] Response JSON:', data);
+
+    if (!res.ok) throw new Error(data?.message || 'Login inválido');
+    return data;
   },
   async me(token: string) {
-    const res = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
+    const url = `${API_BASE_URL}/api/v1/auth/me`;
+    console.log('[authAPI.me] URL:', url);
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
-      credentials: 'include',
     });
-    if (!res.ok) throw new Error('Token inválido');
-    return res.json();
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || 'Token inválido');
+    return data;
   },
 };
 
 export const notificationsAPI = {
   async list(token: string) {
-    // Si tienes una ruta real, cámbiala aquí
-    const res = await fetch(`${API_BASE_URL}/api/v1/notifications`, {
+    const url = `${API_BASE_URL}/api/v1/notifications`;
+    console.log('[notificationsAPI.list] URL:', url);
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
-      credentials: 'include',
     });
     if (!res.ok) return [];
     return res.json();
@@ -35,21 +47,25 @@ export const notificationsAPI = {
 
 export const reviewsAPI = {
   async listByAlbum(albumId: string) {
-    const res = await fetch(`${API_BASE_URL}/api/v1/reviews?albumId=${encodeURIComponent(albumId)}`);
+    const url = `${API_BASE_URL}/api/v1/reviews?albumId=${encodeURIComponent(albumId)}`;
+    console.log('[reviewsAPI.listByAlbum] URL:', url);
+    const res = await fetch(url);
     if (!res.ok) throw new Error('No se pudieron obtener reseñas');
     return res.json();
   },
   async create(body: { albumId: string; rating: number; comment: string }, token: string) {
-    const res = await fetch(`${API_BASE_URL}/api/v1/reviews`, {
+    const url = `${API_BASE_URL}/api/v1/reviews`;
+    console.log('[reviewsAPI.create] URL:', url);
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(body),
-      credentials: 'include',
     });
-    if (!res.ok) throw new Error('No se pudo crear la reseña');
-    return res.json();
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.message || 'No se pudo crear la reseña');
+    return data;
   },
 };
