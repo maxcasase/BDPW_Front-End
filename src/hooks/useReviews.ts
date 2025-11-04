@@ -1,11 +1,21 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { http } from '../lib/http';
-import type { Review, CreateReviewRequest, PaginationParams } from '../interfaces/api';
+import type { Review, CreateReviewData } from '../interfaces/api';
 
-// Reseñas de un álbum
-export function useAlbumReviews(albumId: string, params: PaginationParams = {}) {
-  const { page = 1, limit = 10 } = params;
-  
+export function useReviews(page = 1, limit = 10) {
+  return useQuery({
+    queryKey: ['reviews', page, limit],
+    queryFn: async () => {
+      const { data } = await http.get<Review[]>('/api/reviews', {
+        params: { page, limit }
+      });
+      return data;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useAlbumReviews(albumId: string, page = 1, limit = 10) {
   return useQuery({
     queryKey: ['reviews', 'album', albumId, page, limit],
     enabled: Boolean(albumId && albumId !== 'undefined'),
@@ -15,17 +25,14 @@ export function useAlbumReviews(albumId: string, params: PaginationParams = {}) 
       });
       return data;
     },
-    staleTime: 2 * 60 * 1000, // 2 minutos
+    staleTime: 1 * 60 * 1000,
   });
 }
 
-// Reseñas de un usuario
-export function useUserReviews(userId: string, params: PaginationParams = {}) {
-  const { page = 1, limit = 10 } = params;
-  
+export function useUserReviews(userId: string, page = 1, limit = 10) {
   return useQuery({
     queryKey: ['reviews', 'user', userId, page, limit],
-    enabled: Boolean(userId),
+    enabled: Boolean(userId && userId !== 'undefined'),
     queryFn: async () => {
       const { data } = await http.get<Review[]>(`/api/reviews/user/${userId}`, {
         params: { page, limit }
@@ -36,8 +43,7 @@ export function useUserReviews(userId: string, params: PaginationParams = {}) {
   });
 }
 
-// Reseñas recientes (homepage, charts)
-export function useRecentReviews(limit: number = 10) {
+export function useRecentReviews(limit = 10) {
   return useQuery({
     queryKey: ['reviews', 'recent', limit],
     queryFn: async () => {
@@ -46,122 +52,52 @@ export function useRecentReviews(limit: number = 10) {
       });
       return data;
     },
-    staleTime: 1 * 60 * 1000, // 1 minuto
+    staleTime: 30 * 1000, // 30 segundos
   });
 }
 
-// Top reviewers
-export function useTopReviewers(limit: number = 10) {
-  return useQuery({
-    queryKey: ['reviews', 'top-reviewers', limit],
-    queryFn: async () => {
-      const { data } = await http.get<any[]>('/api/reviews/top-reviewers', {
-        params: { limit }
-      });
-      return data;
-    },
-    staleTime: 15 * 60 * 1000, // 15 minutos
-  });
-}
-
-// Crear reseña
 export function useCreateReview() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (payload: CreateReviewRequest) => {
-      const { data } = await http.post<Review>('/api/reviews', payload);
+    mutationFn: async (reviewData: CreateReviewData) => {
+      const { data } = await http.post<Review>('/api/reviews', reviewData);
       return data;
     },
-    onSuccess: (newReview) => {
-      // Invalidar cache relacionado
-      queryClient.invalidateQueries({ queryKey: ['reviews', 'album', newReview.album_id] });
-      queryClient.invalidateQueries({ queryKey: ['album', newReview.album_id] }); // Refrescar rating
+    onSuccess: (data, variables) => {
+      // Invalidar quéries relacionadas
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'album', variables.album_id] });
+      queryClient.invalidateQueries({ queryKey: ['album', variables.album_id] });
       queryClient.invalidateQueries({ queryKey: ['reviews', 'recent'] });
-      queryClient.invalidateQueries({ queryKey: ['reviews', 'user', newReview.user_id] });
-    }
+    },
   });
 }
 
-// Actualizar reseña
-export function useUpdateReview() {
+export function useUpdateReview(reviewId: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ reviewId, ...payload }: { reviewId: string } & CreateReviewRequest) => {
-      const { data } = await http.put<Review>(`/api/reviews/${reviewId}`, payload);
+    mutationFn: async (reviewData: Partial<CreateReviewData>) => {
+      const { data } = await http.put<Review>(`/api/reviews/${reviewId}`, reviewData);
       return data;
     },
-    onSuccess: (updatedReview) => {
-      queryClient.invalidateQueries({ queryKey: ['reviews', 'album', updatedReview.album_id] });
-      queryClient.invalidateQueries({ queryKey: ['album', updatedReview.album_id] });
-      queryClient.invalidateQueries({ queryKey: ['reviews', 'user', updatedReview.user_id] });
-    }
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', 'album', data.album_id] });
+      queryClient.invalidateQueries({ queryKey: ['album', data.album_id] });
+    },
   });
 }
 
-// Eliminar reseña
-export function useDeleteReview() {
+export function useDeleteReview(reviewId: string) {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (reviewId: string) => {
+    mutationFn: async () => {
       await http.delete(`/api/reviews/${reviewId}`);
-      return reviewId;
-    },
-    onSuccess: (_, reviewId) => {
-      // Invalidar todo el cache de reviews para simplicidad
-      queryClient.invalidateQueries({ queryKey: ['reviews'] });
-      queryClient.invalidateQueries({ queryKey: ['albums'] });
-    }
-  });
-}
-
-// Like/Dislike review
-export function useLikeReview() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (reviewId: string) => {
-      const { data } = await http.post(`/api/reviews/${reviewId}/like`);
-      return data;
     },
     onSuccess: () => {
+      // Invalidar todas las reviews (no sabemos el album_id aquí)
       queryClient.invalidateQueries({ queryKey: ['reviews'] });
-    }
-  });
-}
-
-export function useDislikeReview() {
-  const queryClient = useQueryClient();
-  
-  return useMutation({
-    mutationFn: async (reviewId: string) => {
-      const { data } = await http.post(`/api/reviews/${reviewId}/dislike`);
-      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['reviews'] });
-    }
-  });
-}
-
-// Verificar si usuario ya reseñó álbum
-export function useUserAlbumReview(userId: string, albumId: string) {
-  return useQuery({
-    queryKey: ['review', 'user-album', userId, albumId],
-    enabled: Boolean(userId && albumId),
-    queryFn: async () => {
-      try {
-        const { data } = await http.get<Review>(`/api/reviews/check/${userId}/${albumId}`);
-        return data;
-      } catch (error: any) {
-        if (error.response?.status === 404) {
-          return null; // No existe reseña
-        }
-        throw error;
-      }
-    },
-    staleTime: 1 * 60 * 1000,
   });
 }

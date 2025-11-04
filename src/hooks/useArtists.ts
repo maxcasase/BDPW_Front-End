@@ -1,11 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { http } from '../lib/http';
-import type { Artist, PaginationParams, SearchParams } from '../interfaces/api';
+import type { Artist } from '../interfaces/api';
 
-// Listar artistas
-export function useArtists(params: PaginationParams = {}) {
-  const { page = 1, limit = 20 } = params;
-  
+export function useArtists(page = 1, limit = 12) {
   return useQuery({
     queryKey: ['artists', page, limit],
     queryFn: async () => {
@@ -18,7 +15,6 @@ export function useArtists(params: PaginationParams = {}) {
   });
 }
 
-// Obtener artista específico
 export function useArtist(id: string) {
   return useQuery({
     queryKey: ['artist', id],
@@ -27,29 +23,25 @@ export function useArtist(id: string) {
       const { data } = await http.get<Artist>(`/api/artists/${id}`);
       return data;
     },
-    staleTime: 15 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
-// Buscar artistas
-export function useSearchArtists(params: SearchParams) {
-  const { query, page = 1, limit = 20 } = params;
-  
+export function useSearchArtists(query: string, page = 1, limit = 12) {
   return useQuery({
     queryKey: ['artists', 'search', query, page, limit],
-    enabled: Boolean(query && query.trim().length > 0),
+    enabled: Boolean(query?.trim()),
     queryFn: async () => {
       const { data } = await http.get<Artist[]>('/api/artists/search', {
         params: { q: query, page, limit }
       });
       return data;
     },
-    staleTime: 3 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
   });
 }
 
-// Top artistas (por rating o popularidad)
-export function useTopArtists(limit: number = 10) {
+export function useTopArtists(limit = 10) {
   return useQuery({
     queryKey: ['artists', 'top', limit],
     queryFn: async () => {
@@ -58,19 +50,20 @@ export function useTopArtists(limit: number = 10) {
       });
       return data;
     },
-    staleTime: 30 * 60 * 1000, // 30 minutos
+    staleTime: 15 * 60 * 1000,
   });
 }
 
-// Estadísticas de un artista
-export function useArtistStats(artistId: string) {
+export function useArtistAlbums(artistId: string, page = 1, limit = 10) {
   return useQuery({
-    queryKey: ['artist', artistId, 'stats'],
-    enabled: Boolean(artistId),
+    queryKey: ['artist', artistId, 'albums', page, limit],
+    enabled: Boolean(artistId && artistId !== 'undefined'),
     queryFn: async () => {
-      const { data } = await http.get(`/api/artists/${artistId}/stats`);
+      const { data } = await http.get<Artist[]>(`/api/artists/${artistId}/albums`, {
+        params: { page, limit }
+      });
       return data;
     },
-    staleTime: 15 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
   });
 }
