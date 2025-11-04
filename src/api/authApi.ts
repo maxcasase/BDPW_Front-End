@@ -22,8 +22,8 @@ export const loginUser = async (
   credentials: ILoginCredentials
 ): Promise<ILoginResponse> => {
   
-  // Hacemos la llamada POST al endpoint '/login' (basado en RF 31)
-  const { data } = await api.post<ILoginResponse>('/login', credentials);
+  // Hacemos la llamada POST al endpoint '/v1/auth/login' (basado en RF 31)
+  const { data } = await api.post<ILoginResponse>('/v1/auth/login', credentials);
   return data;
 };
 
