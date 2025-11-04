@@ -13,7 +13,7 @@ const HomePage = () => {
   const navigate = useNavigate();
   
   // Cargar álbumes destacados (primeros 6)
-  const { data: albums, isLoading: albumsLoading, error: albumsError } = useAlbums({ page: 1, limit: 6 });
+  const { data: albums, isLoading: albumsLoading, error: albumsError } = useAlbums(1, 6);
   
   // Cargar reseñas recientes para actividad
   const { data: recentReviews, isLoading: reviewsLoading } = useRecentReviews(5);
@@ -87,7 +87,8 @@ const HomePage = () => {
             borderRadius: '8px',
             marginBottom: '2rem'
           }}>
-            Error al cargar álbumes. Verifica que el backend esté funcionando.
+            ⚠️ Error al conectar con el backend MongoDB. 
+            <br />Verifica que tu API en Render esté funcionando.
           </div>
         )}
         
@@ -105,9 +106,10 @@ const HomePage = () => {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#6c757d'
+                color: '#6c757d',
+                animation: 'pulse 2s infinite'
               }}>
-                Cargando...
+                📀 Cargando álbum...
               </div>
             ))}
           </div>
@@ -136,7 +138,7 @@ const HomePage = () => {
                 e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
               }}>
                 <img 
-                  src={album.cover_image || 'https://via.placeholder.com/300x300?text=' + encodeURIComponent(album.title)} 
+                  src={album.cover_image || `https://via.placeholder.com/300x300?text=${encodeURIComponent(album.title)}`} 
                   alt={album.title}
                   style={{
                     width: '100%',
@@ -184,7 +186,10 @@ const HomePage = () => {
                       color: '#888',
                       fontSize: '0.9rem'
                     }}>
-                      {formatRating(album.average_rating)}/10 ({album.total_ratings || 0} reseñas)
+                      {formatRating(album.average_rating)}/10 
+                      <span style={{ opacity: 0.7 }}>
+                        ({album.total_ratings || 0} reseña{(album.total_ratings || 0) !== 1 ? 's' : ''})
+                      </span>
                     </span>
                   </div>
                   <div style={{
@@ -246,6 +251,17 @@ const HomePage = () => {
             )) || []}
           </div>
         )}
+        
+        {!albumsLoading && (!albums || albums.length === 0) && !albumsError && (
+          <div style={{
+            textAlign: 'center',
+            padding: '3rem',
+            color: '#666'
+          }}>
+            📀 No hay álbumes disponibles. 
+            <br />¿Ejecutaste el seed en tu backend?
+          </div>
+        )}
       </section>
 
       {/* Features Grid */}
@@ -285,14 +301,50 @@ const HomePage = () => {
       }}>
         <h2 style={{
           fontSize: '1.75rem',
-          marginBottom: '1rem',
+          marginBottom: '1.5rem',
           color: '#1a1a1a'
         }}>
           Actividad Reciente
         </h2>
         
         {reviewsLoading ? (
-          <p style={{ color: '#777' }}>Cargando actividad reciente...</p>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            {[1, 2, 3].map(i => (
+              <div key={i} style={{
+                padding: '1rem',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.75rem'
+              }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  backgroundColor: '#dee2e6',
+                  borderRadius: '50%'
+                }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    height: '1rem',
+                    backgroundColor: '#dee2e6',
+                    borderRadius: '4px',
+                    marginBottom: '0.5rem'
+                  }} />
+                  <div style={{
+                    height: '0.75rem',
+                    backgroundColor: '#e9ecef',
+                    borderRadius: '4px',
+                    width: '70%'
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : recentReviews && recentReviews.length > 0 ? (
           <div style={{
             display: 'flex',
@@ -301,84 +353,171 @@ const HomePage = () => {
           }}>
             {recentReviews.map((review) => (
               <div key={review._id} style={{
-                padding: '1rem',
+                padding: '1.25rem',
                 border: '1px solid #e9ecef',
                 borderRadius: '8px',
-                backgroundColor: '#f8f9fa'
+                backgroundColor: '#f8f9fa',
+                transition: 'border-color 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#007bff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#e9ecef';
               }}>
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.75rem',
-                  marginBottom: '0.5rem'
+                  marginBottom: '0.75rem'
                 }}>
                   <img 
-                    src={review.avatar_url || 'https://via.placeholder.com/40x40?text=U'} 
+                    src={review.avatar_url || `https://via.placeholder.com/40x40?text=${(review.username || 'U').charAt(0).toUpperCase()}`} 
                     alt={review.username || 'Usuario'}
                     style={{
                       width: '40px',
                       height: '40px',
                       borderRadius: '50%',
-                      objectFit: 'cover'
+                      objectFit: 'cover',
+                      border: '2px solid #dee2e6'
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://via.placeholder.com/40x40?text=${(review.username || 'U').charAt(0).toUpperCase()}`;
                     }}
                   />
-                  <div>
-                    <strong style={{ color: '#1a1a1a' }}>
-                      {review.profile_name || review.username}
-                    </strong>
-                    <span style={{ color: '#666', marginLeft: '0.5rem' }}>
-                      reseñó "{review.album_title}"
-                    </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem'
+                    }}>
+                      <strong style={{ color: '#1a1a1a' }}>
+                        {review.profile_name || review.username}
+                      </strong>
+                      <span style={{ color: '#666' }}>reseñó</span>
+                      <strong 
+                        style={{ 
+                          color: '#007bff', 
+                          cursor: 'pointer',
+                          textDecoration: 'none'
+                        }}
+                        onClick={() => navigate(`/album/${review.album_id}`)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.textDecoration = 'underline';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.textDecoration = 'none';
+                        }}
+                      >
+                        "{review.album_title}"
+                      </strong>
+                    </div>
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.25rem',
                       marginTop: '0.25rem'
                     }}>
-                      {[...Array(Math.floor(review.rating))].map((_, i) => (
-                        <span key={i} style={{ color: '#ffc107' }}>★</span>
+                      {[...Array(5)].map((_, i) => (
+                        <span 
+                          key={i} 
+                          style={{ 
+                            color: i < Math.floor(review.rating / 2) ? '#ffc107' : '#dee2e6',
+                            fontSize: '1rem'
+                          }}
+                        >
+                          ★
+                        </span>
                       ))}
-                      <span style={{ color: '#888', fontSize: '0.9rem', marginLeft: '0.25rem' }}>
+                      <span style={{ color: '#888', fontSize: '0.9rem', marginLeft: '0.5rem' }}>
                         {review.rating}/10
+                      </span>
+                      <span style={{ color: '#ccc', fontSize: '0.8rem', marginLeft: 'auto' }}>
+                        {new Date(review.created_at).toLocaleDateString('es-ES')}
                       </span>
                     </div>
                   </div>
                 </div>
-                <p style={{
-                  color: '#666',
-                  fontSize: '0.95rem',
-                  lineHeight: '1.4',
-                  margin: '0.5rem 0 0 0'
+                <div style={{
+                  marginLeft: '3rem',
+                  paddingLeft: '1rem',
+                  borderLeft: '3px solid #007bff'
                 }}>
-                  "{review.title}" - {review.content.length > 100 
-                    ? review.content.substring(0, 100) + '...' 
-                    : review.content
-                  }
-                </p>
+                  <h4 style={{
+                    fontSize: '1rem',
+                    fontWeight: '600',
+                    color: '#1a1a1a',
+                    marginBottom: '0.5rem'
+                  }}>
+                    {review.title}
+                  </h4>
+                  <p style={{
+                    color: '#666',
+                    fontSize: '0.95rem',
+                    lineHeight: '1.4',
+                    margin: 0
+                  }}>
+                    {review.content.length > 150 
+                      ? review.content.substring(0, 150) + '...' 
+                      : review.content
+                    }
+                  </p>
+                </div>
               </div>
             ))}
             <button
               onClick={() => navigate('/charts')}
               style={{
                 alignSelf: 'center',
-                padding: '0.75rem 1.5rem',
+                padding: '0.75rem 2rem',
                 backgroundColor: '#007bff',
                 color: 'white',
                 border: 'none',
-                borderRadius: '6px',
+                borderRadius: '25px',
                 cursor: 'pointer',
-                fontSize: '0.9rem',
+                fontSize: '0.95rem',
                 fontWeight: '500',
-                marginTop: '1rem'
+                marginTop: '1.5rem',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#0056b3';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = '#007bff';
+                e.currentTarget.style.transform = 'translateY(0)';
               }}
             >
-              Ver todas las reseñas
+              Ver todas las reseñas →
             </button>
           </div>
         ) : (
-          <p style={{ color: '#777' }}>
-            No hay reseñas recientes. ¡Sé el primero en escribir una!
-          </p>
+          <div style={{
+            textAlign: 'center',
+            padding: '3rem',
+            color: '#666',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px'
+          }}>
+            🎵 No hay reseñas recientes. 
+            <br />¡Sé el primero en escribir una!
+          </div>
+        )}
+        
+        {!albumsLoading && (!albums || albums.length === 0) && !albumsError && (
+          <div style={{
+            textAlign: 'center',
+            padding: '3rem',
+            color: '#666',
+            backgroundColor: '#fff3cd',
+            border: '1px solid #ffeaa7',
+            borderRadius: '8px'
+          }}>
+            📀 No hay álbumes disponibles en MongoDB. 
+            <br />¿Ejecutaste <code>npm run seed-db</code> en tu backend?
+          </div>
         )}
       </section>
     </div>
