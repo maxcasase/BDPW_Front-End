@@ -1,5 +1,3 @@
-// /src/pages/AlbumDetailPage.tsx
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { FaStar, FaEdit, FaThumbsUp, FaThumbsDown, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
@@ -12,12 +10,14 @@ const AlbumDetailPage = () => {
   const [reviews, setReviews] = useState<IReview[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
+  const [album, setAlbum] = useState<any | null>(null);
+  const [loadingAlbum, setLoadingAlbum] = useState(true);
 
   // Obtener usuario actual del token (simplificado)
   const getCurrentUser = () => {
     const token = localStorage.getItem('token');
     if (!token) return null;
-    
+
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return { id: payload.id };
@@ -28,33 +28,30 @@ const AlbumDetailPage = () => {
 
   const currentUser = getCurrentUser();
 
-  // Datos simulados del álbum (en el futuro se cargarían de la API)
-  const album = {
-    id: id,
-    titulo: 'Abbey Road',
-    artista: 'The Beatles',
-    fecha_lanzamiento: '1969-09-26',
-    genero_principal: 'Rock',
-    duracion_total: 2869,
-    portada_url: 'https://via.placeholder.com/300',
-    descripcion: 'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
-    sello_discografico: 'Apple Records',
-    puntuacion_promedio: 9.2,
-    total_resenas: reviews.length,
-    canciones: [
-      { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
-      { numero_pista: 2, titulo: 'Something', duracion: 182 },
-      { numero_pista: 3, titulo: 'Maxwell\'s Silver Hammer', duracion: 207 },
-      { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
-      { numero_pista: 5, titulo: 'Octopus\'s Garden', duracion: 171 },
-    ]
-  };
+  // Cargar álbum dinámico desde API
+  useEffect(() => {
+    if (!id) return;
+    const fetchAlbum = async () => {
+      setLoadingAlbum(true);
+      try {
+        const response = await fetch(`https://bd-y-pw.onrender.com/albums/${id}`);
+        if (!response.ok) throw new Error('No se encontró el álbum');
+        const albumData = await response.json();
+        setAlbum(albumData);
+      } catch (error) {
+        setAlbum(null);
+        console.error(error);
+      } finally {
+        setLoadingAlbum(false);
+      }
+    };
+    fetchAlbum();
+  }, [id]);
 
   // Cargar reviews al montar el componente
   useEffect(() => {
     const loadReviews = async () => {
       if (!id) return;
-      
       try {
         setLoadingReviews(true);
         const response = await getReviewsByAlbum(parseInt(id));
@@ -65,7 +62,6 @@ const AlbumDetailPage = () => {
         setLoadingReviews(false);
       }
     };
-
     loadReviews();
   }, [id]);
 
@@ -73,12 +69,9 @@ const AlbumDetailPage = () => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
       return;
     }
-
     try {
       setDeletingReviewId(reviewId);
       await deleteReview(reviewId);
-      
-      // Actualizar lista local
       setReviews(reviews.filter(review => review.id !== reviewId));
     } catch (error: any) {
       console.error('Error eliminando review:', error);
@@ -114,6 +107,13 @@ const AlbumDetailPage = () => {
 
   // Verificar si el usuario actual ya hizo una review
   const userReview = currentUser ? reviews.find(review => review.user_id === currentUser.id) : null;
+
+  if (loadingAlbum) {
+    return <div style={{ color: 'white', padding: '2rem' }}>Cargando álbum...</div>;
+  }
+  if (!album) {
+    return <div style={{ color: 'red', padding: '2rem' }}>¡Álbum no encontrado!</div>;
+  }
 
   return (
     <div style={{
@@ -265,7 +265,7 @@ const AlbumDetailPage = () => {
             borderRadius: '8px',
             border: '1px solid #333'
           }}>
-            {album.canciones.map((cancion, index) => (
+            {album.canciones.map((cancion: any, index: number) => (
               <div
                 key={cancion.numero_pista}
                 style={{
