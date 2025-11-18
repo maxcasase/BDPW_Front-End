@@ -1,470 +1,134 @@
-// /src/pages/AlbumDetailPage.tsx
-
-import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaEdit, FaThumbsUp, FaThumbsDown, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
-import { getReviewsByAlbum, deleteReview, type IReview } from '../api/reviewsApi';
+import React, { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { FaStar, FaEdit, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
+import { getReviewsByAlbum, deleteReview } from '../api/reviewsApi';
 
 const AlbumDetailPage = () => {
-  const { id } = useParams<{ id: string }>();
-  const [userRating, setUserRating] = useState<number>(0);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviews, setReviews] = useState<IReview[]>([]);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [album, setAlbum] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [loadingAlbum, setLoadingAlbum] = useState(true);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchingDiscogs, setSearchingDiscogs] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Obtener usuario actual del token (simplificado)
-  const getCurrentUser = () => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return { id: payload.id };
-    } catch {
-      return null;
-    }
-  };
+  useEffect(() => {
+    if (!id) return;
+    setLoadingAlbum(true);
+    setError(null);
+    fetch(`https://bd-y-pw.onrender.com/albums/${id}`)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Album not found');
+        }
+        return response.json();
+      })
+      .then(data => {
+        setAlbum(data);
+        setLoadingAlbum(false);
+      })
+      .catch(async err => {
+        setAlbum(null);
+        setLoadingAlbum(false);
+        if (err.message === 'Album not found') {
+          // Search in Discogs
+          setSearchingDiscogs(true);
+          const title = window.prompt('Álbum no encontrado localmente. Indica el nombre del álbum para buscar en Discogs:', '');
+          const artist = window.prompt('Indica el nombre del artista para buscar en Discogs:', '');
+          if (!title || !artist) {
+            setError('Debe ingresar título y artista para buscar');
+            setSearchingDiscogs(false);
+            return;
+          }
+          try {
+            const discogsRes = await fetch(`https://bd-y-pw.onrender.com/discogs/search?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+            const discogsData = await discogsRes.json();
+            if (discogsData.success && discogsData.results.length > 0) {
+              setSearchResults(discogsData.results);
+            } else {
+              setError('No se encontraron resultados en Discogs');
+            }
+          } catch (searchErr) {
+            setError('Error buscando en Discogs');
+          }
+          setSearchingDiscogs(false);
+        } else {
+          setError('Error cargando el álbum');
+        }
+      });
+  }, [id]);
 
-  const currentUser = getCurrentUser();
-
-  // Datos simulados del álbum (en el futuro se cargarían de la API)
-  const album = {
-    id: id,
-    titulo: 'Abbey Road',
-    artista: 'The Beatles',
-    fecha_lanzamiento: '1969-09-26',
-    genero_principal: 'Rock',
-    duracion_total: 2869,
-    portada_url: 'https://via.placeholder.com/300',
-    descripcion: 'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
-    sello_discografico: 'Apple Records',
-    puntuacion_promedio: 9.2,
-    total_resenas: reviews.length,
-    canciones: [
-      { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
-      { numero_pista: 2, titulo: 'Something', duracion: 182 },
-      { numero_pista: 3, titulo: 'Maxwell\'s Silver Hammer', duracion: 207 },
-      { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
-      { numero_pista: 5, titulo: 'Octopus\'s Garden', duracion: 171 },
-    ]
-  };
-
-  // Cargar reviews al montar el componente
   useEffect(() => {
     const loadReviews = async () => {
       if (!id) return;
-      
+      setLoadingReviews(true);
       try {
-        setLoadingReviews(true);
         const response = await getReviewsByAlbum(parseInt(id));
         setReviews(response.reviews);
-      } catch (error) {
-        console.error('Error cargando reviews:', error);
+      } catch (e) {
+        setReviews([]);
       } finally {
         setLoadingReviews(false);
       }
     };
-
     loadReviews();
   }, [id]);
 
-  const handleDeleteReview = async (reviewId: number) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
-      return;
-    }
-
+  const handleSaveDiscogsAlbum = async (album) => {
     try {
-      setDeletingReviewId(reviewId);
-      await deleteReview(reviewId);
-      
-      // Actualizar lista local
-      setReviews(reviews.filter(review => review.id !== reviewId));
-    } catch (error: any) {
-      console.error('Error eliminando review:', error);
-      alert('Error al eliminar la reseña');
-    } finally {
-      setDeletingReviewId(null);
+      const postBody = {
+        title: album.title,
+        artist: album.artist,
+        year: album.year || null,
+        cover_image: album.cover_image || '',
+        discogs_release_id: album.id
+      };
+      const saveRes = await fetch(`https://bd-y-pw.onrender.com/discogs/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postBody)
+      });
+      const saveData = await saveRes.json();
+      if (saveData.success) {
+        navigate(`/album/${saveData.albumId}`);
+      } else {
+        setError(saveData.message || 'Error guardando álbum');
+      }
+    } catch {
+      setError('Error guardando álbum en el servidor');
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
+  if (loadingAlbum) return <p>Cargando álbum...</p>;
+  if (error) return <p style={{ color: 'red' }}>{error}</p>;
 
-  const formatTotalDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    return `${mins} min`;
-  };
+  if (searchingDiscogs) return <p>Buscando álbumes en Discogs...</p>;
 
-  const handleRatingClick = (rating: number) => {
-    setUserRating(rating);
-    setShowReviewForm(true);
-  };
+  if (!album && searchResults.length > 0) {
+    return (
+      <div>
+        <h3>Resultados de búsqueda en Discogs</h3>
+        <ul>
+          {searchResults.map((result) => (
+            <li key={result.id}>
+              {result.title} - {result.artist} ({result.year || 'N/A'})
+              <button onClick={() => handleSaveDiscogsAlbum(result)}>Guardar álbum</button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Verificar si el usuario actual ya hizo una review
-  const userReview = currentUser ? reviews.find(review => review.user_id === currentUser.id) : null;
+  if (!album) return <p>Álbum no encontrado y sin resultados de Discogs</p>;
 
   return (
-    <div style={{
-      width: '100%',
-      minHeight: 'calc(100vh - 80px)',
-      backgroundColor: '#2a2a2a'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '2rem'
-      }}>
-        {/* Header del Álbum */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '300px 1fr',
-          gap: '2rem',
-          marginBottom: '3rem'
-        }}>
-          {/* Portada */}
-          <div>
-            <img 
-              src={album.portada_url}
-              alt={album.titulo}
-              style={{
-                width: '100%',
-                borderRadius: '8px',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
-              }}
-            />
-          </div>
-
-          {/* Información del Álbum */}
-          <div>
-            <p style={{ color: '#888', marginBottom: '0.5rem', textTransform: 'uppercase', fontSize: '0.85rem' }}>
-              {album.genero_principal}
-            </p>
-            <h1 style={{ 
-              color: 'white', 
-              fontSize: '3rem', 
-              marginBottom: '0.5rem',
-              fontWeight: 'bold'
-            }}>
-              {album.titulo}
-            </h1>
-            <h2 style={{ 
-              color: '#b0b0b0', 
-              fontSize: '1.5rem', 
-              marginBottom: '1.5rem',
-              fontWeight: 'normal'
-            }}>
-              {album.artista}
-            </h2>
-
-            <div style={{ 
-              display: 'flex', 
-              gap: '2rem', 
-              marginBottom: '1.5rem',
-              color: '#888',
-              fontSize: '0.9rem'
-            }}>
-              <span>📅 {new Date(album.fecha_lanzamiento).getFullYear()}</span>
-              <span><FaClock style={{ marginRight: '0.5rem' }} />{formatTotalDuration(album.duracion_total)}</span>
-              <span>🏢 {album.sello_discografico}</span>
-            </div>
-
-            {/* Calificación Promedio */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              marginBottom: '1.5rem',
-              padding: '1rem',
-              backgroundColor: '#1a1a1a',
-              borderRadius: '8px',
-              border: '1px solid #333'
-            }}>
-              <div>
-                <div style={{ 
-                  fontSize: '3rem', 
-                  fontWeight: 'bold', 
-                  color: '#ffd700',
-                  lineHeight: 1
-                }}>
-                  {reviews.length > 0 ? 
-                    (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) 
-                    : '0.0'
-                  }
-                </div>
-                <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                  {reviews.length} reseñas
-                </div>
-              </div>
-              
-              {/* Botón de escribir reseña */}
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                {currentUser ? (
-                  userReview ? (
-                    <div style={{ color: '#888' }}>Ya escribiste una reseña</div>
-                  ) : (
-                    <Link 
-                      to={`/album/${id}/review`}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.75rem 1.5rem',
-                        backgroundColor: '#646cff',
-                        color: 'white',
-                        borderRadius: '8px',
-                        textDecoration: 'none',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      <FaEdit /> Escribir Reseña
-                    </Link>
-                  )
-                ) : (
-                  <Link 
-                    to="/login"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.75rem 1.5rem',
-                      backgroundColor: '#333',
-                      color: 'white',
-                      borderRadius: '8px',
-                      textDecoration: 'none'
-                    }}
-                  >
-                    Inicia sesión para reseñar
-                  </Link>
-                )}
-              </div>
-            </div>
-
-            <p style={{ color: '#b0b0b0', lineHeight: 1.6 }}>
-              {album.descripcion}
-            </p>
-          </div>
-        </div>
-
-        {/* Lista de Canciones */}
-        <section style={{ marginBottom: '3rem' }}>
-          <h2 style={{ color: 'white', marginBottom: '1rem' }}>Canciones</h2>
-          <div style={{
-            backgroundColor: '#1a1a1a',
-            borderRadius: '8px',
-            border: '1px solid #333'
-          }}>
-            {album.canciones.map((cancion, index) => (
-              <div
-                key={cancion.numero_pista}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '40px 1fr 80px 40px',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '1rem',
-                  borderBottom: index < album.canciones.length - 1 ? '1px solid #333' : 'none',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-              >
-                <span style={{ color: '#888', textAlign: 'center' }}>
-                  {cancion.numero_pista}
-                </span>
-                <span style={{ color: 'white' }}>
-                  {cancion.titulo}
-                </span>
-                <span style={{ color: '#888', fontSize: '0.9rem' }}>
-                  {formatDuration(cancion.duracion)}
-                </span>
-                <button style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  border: '1px solid #646cff',
-                  backgroundColor: 'transparent',
-                  color: '#646cff',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  <FaPlay size={12} />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Sección de Reseñas */}
-        <section>
-          <h2 style={{ color: 'white', marginBottom: '1rem' }}>
-            Reseñas de la Comunidad
-          </h2>
-          
-          {loadingReviews ? (
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '2rem',
-              borderRadius: '8px',
-              border: '1px solid #333',
-              textAlign: 'center'
-            }}>
-              <p style={{ color: '#888' }}>
-                Cargando reseñas...
-              </p>
-            </div>
-          ) : reviews.length === 0 ? (
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '2rem',
-              borderRadius: '8px',
-              border: '1px solid #333',
-              textAlign: 'center'
-            }}>
-              <p style={{ color: '#888', marginBottom: '1rem' }}>
-                Aún no hay reseñas para este álbum.
-              </p>
-              {currentUser && (
-                <Link 
-                  to={`/album/${id}/review`}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.75rem 1.5rem',
-                    backgroundColor: '#646cff',
-                    color: 'white',
-                    borderRadius: '8px',
-                    textDecoration: 'none',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  <FaEdit /> ¡Sé el primero en reseñar!
-                </Link>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  style={{
-                    backgroundColor: '#1a1a1a',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    border: '1px solid #333'
-                  }}
-                >
-                  {/* Header de la reseña */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    marginBottom: '1rem'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        backgroundColor: '#646cff',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}>
-                        {(review.profile_name || review.username || 'U')[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ color: 'white', fontWeight: 'bold' }}>
-                          {review.profile_name || review.username}
-                        </div>
-                        <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                          {formatDate(review.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      {/* Rating */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.25rem 0.75rem',
-                        backgroundColor: '#ffd70033',
-                        borderRadius: '20px',
-                        border: '1px solid #ffd700'
-                      }}>
-                        <FaStar color="#ffd700" size={12} />
-                        <span style={{ color: '#ffd700', fontWeight: 'bold' }}>
-                          {review.rating}/10
-                        </span>
-                      </div>
-                      
-                      {/* Botón eliminar (solo para el autor) */}
-                      {currentUser && currentUser.id === review.user_id && (
-                        <button
-                          onClick={() => handleDeleteReview(review.id)}
-                          disabled={deletingReviewId === review.id}
-                          style={{
-                            padding: '0.5rem',
-                            borderRadius: '4px',
-                            border: '1px solid #ff4444',
-                            backgroundColor: 'transparent',
-                            color: '#ff4444',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                        >
-                          {deletingReviewId === review.id ? '...' : <FaTrash size={12} />}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Título de la reseña */}
-                  {review.title && (
-                    <h3 style={{
-                      color: 'white',
-                      marginBottom: '0.75rem',
-                      fontSize: '1.2rem'
-                    }}>
-                      {review.title}
-                    </h3>
-                  )}
-
-                  {/* Contenido */}
-                  <p style={{
-                    color: '#b0b0b0',
-                    lineHeight: 1.6,
-                    margin: 0
-                  }}>
-                    {review.content}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+    <div>
+      <h1>{album.title}</h1>
+      <h2>{album.artist}</h2>
+      {/* Aquí renderizas el contenido del álbum y reseñas como antes */}
     </div>
   );
 };
