@@ -20,7 +20,7 @@ const featuredAlbums: Album[] = [
     title: 'Abbey Road',
     artist: 'The Beatles',
     year: 1969,
-    cover: 'https://en.wikipedia.org/wiki/Abbey_Road#/media/File:Beatles_-_Abbey_Road.jpg',
+    cover: 'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg',
     rating: '0.00'
   },
   {
