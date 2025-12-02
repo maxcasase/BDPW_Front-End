@@ -2,8 +2,66 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaEdit, FaClock, FaTrash } from 'react-icons/fa'; // <- FaPlay eliminado
+import { FaStar, FaEdit, FaClock, FaTrash } from 'react-icons/fa';
 import { getReviewsByAlbum, deleteReview, type IReview } from '../api/reviewsApi';
+
+// Mock de álbumes destacados (los mismos 3 que usas en HomePage)
+const mockAlbums = [
+  {
+    id: 1,
+    titulo: 'Abbey Road',
+    artista: 'The Beatles',
+    fecha_lanzamiento: '1969-09-26',
+    genero_principal: 'Rock',
+    duracion_total: 2869,
+    portada_url:
+      'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg',
+    descripcion:
+      'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
+    sello_discografico: 'Apple Records',
+    canciones: [
+      { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
+      { numero_pista: 2, titulo: 'Something', duracion: 182 },
+      { numero_pista: 3, titulo: "Maxwell's Silver Hammer", duracion: 207 },
+      { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
+      { numero_pista: 5, titulo: "Octopus's Garden", duracion: 171 },
+    ],
+  },
+  {
+    id: 2,
+    titulo: 'The Dark Side of the Moon',
+    artista: 'Pink Floyd',
+    fecha_lanzamiento: '1973-03-01',
+    genero_principal: 'Rock Progresivo',
+    duracion_total: 2580,
+    portada_url:
+      'https://upload.wikimedia.org/wikipedia/en/3/3b/Dark_Side_of_the_Moon.png',
+    descripcion: 'Álbum icónico de Pink Floyd.',
+    sello_discografico: 'Harvest Records',
+    canciones: [
+      { numero_pista: 1, titulo: 'Speak to Me', duracion: 90 },
+      { numero_pista: 2, titulo: 'Breathe', duracion: 163 },
+      { numero_pista: 3, titulo: 'Time', duracion: 414 },
+    ],
+  },
+  {
+    id: 3,
+    titulo: 'Thriller',
+    artista: 'Michael Jackson',
+    fecha_lanzamiento: '1982-11-30',
+    genero_principal: 'Pop',
+    duracion_total: 2580,
+    portada_url:
+      'https://upload.wikimedia.org/wikipedia/en/5/55/Michael_Jackson_-_Thriller.png',
+    descripcion: 'Uno de los álbumes más vendidos de la historia.',
+    sello_discografico: 'Epic',
+    canciones: [
+      { numero_pista: 1, titulo: 'Wanna Be Startin’ Somethin’', duracion: 362 },
+      { numero_pista: 2, titulo: 'Thriller', duracion: 358 },
+      { numero_pista: 3, titulo: 'Beat It', duracion: 258 },
+    ],
+  },
+];
 
 const AlbumDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -13,6 +71,9 @@ const AlbumDetailPage = () => {
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
 
+  const numericId = id ? parseInt(id, 10) : 0;
+  const album = mockAlbums.find((a) => a.id === numericId) || mockAlbums[0];
+
   // Obtener usuario actual del token (simplificado)
   const getCurrentUser = () => {
     const token = localStorage.getItem('token');
@@ -20,7 +81,6 @@ const AlbumDetailPage = () => {
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      // En Mongo el _id es string
       return { id: String(payload.id) };
     } catch {
       return null;
@@ -29,37 +89,14 @@ const AlbumDetailPage = () => {
 
   const currentUser = getCurrentUser();
 
-  // Datos simulados del álbum (en el futuro se cargarían de la API)
-  const album = {
-    id: id,
-    titulo: 'Abbey Road',
-    artista: 'The Beatles',
-    fecha_lanzamiento: '1969-09-26',
-    genero_principal: 'Rock',
-    duracion_total: 2869,
-    portada_url: 'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg',
-    descripcion:
-      'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
-    sello_discografico: 'Apple Records',
-    puntuacion_promedio: 9.2,
-    total_resenas: reviews.length,
-    canciones: [
-      { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
-      { numero_pista: 2, titulo: 'Something', duracion: 182 },
-      { numero_pista: 3, titulo: "Maxwell's Silver Hammer", duracion: 207 },
-      { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
-      { numero_pista: 5, titulo: "Octopus's Garden", duracion: 171 }
-    ]
-  };
-
   // Cargar reviews al montar el componente
   useEffect(() => {
     const loadReviews = async () => {
-      if (!id) return;
+      if (!numericId) return;
 
       try {
         setLoadingReviews(true);
-        const response = await getReviewsByAlbum(parseInt(id));
+        const response = await getReviewsByAlbum(numericId);
         setReviews(response.reviews);
       } catch (error) {
         console.error('Error cargando reviews:', error);
@@ -69,7 +106,7 @@ const AlbumDetailPage = () => {
     };
 
     loadReviews();
-  }, [id]);
+  }, [numericId]);
 
   const handleDeleteReview = async (reviewId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
@@ -79,8 +116,6 @@ const AlbumDetailPage = () => {
     try {
       setDeletingReviewId(reviewId);
       await deleteReview(reviewId);
-
-      // Actualizar lista local
       setReviews((prev) => prev.filter((review) => review._id !== reviewId));
     } catch (error: any) {
       console.error('Error eliminando review:', error);
@@ -111,7 +146,7 @@ const AlbumDetailPage = () => {
     return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
   };
 
@@ -127,14 +162,14 @@ const AlbumDetailPage = () => {
       style={{
         width: '100%',
         minHeight: 'calc(100vh - 80px)',
-        backgroundColor: '#2a2a2a'
+        backgroundColor: '#2a2a2a',
       }}
     >
       <div
         style={{
           maxWidth: '1200px',
           margin: '0 auto',
-          padding: '2rem'
+          padding: '2rem',
         }}
       >
         {/* Header del Álbum */}
@@ -143,7 +178,7 @@ const AlbumDetailPage = () => {
             display: 'grid',
             gridTemplateColumns: '300px 1fr',
             gap: '2rem',
-            marginBottom: '3rem'
+            marginBottom: '3rem',
           }}
         >
           {/* Portada */}
@@ -154,7 +189,7 @@ const AlbumDetailPage = () => {
               style={{
                 width: '100%',
                 borderRadius: '8px',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.5)'
+                boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
               }}
             />
           </div>
@@ -166,7 +201,7 @@ const AlbumDetailPage = () => {
                 color: '#888',
                 marginBottom: '0.5rem',
                 textTransform: 'uppercase',
-                fontSize: '0.85rem'
+                fontSize: '0.85rem',
               }}
             >
               {album.genero_principal}
@@ -176,7 +211,7 @@ const AlbumDetailPage = () => {
                 color: 'white',
                 fontSize: '3rem',
                 marginBottom: '0.5rem',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
               }}
             >
               {album.titulo}
@@ -186,7 +221,7 @@ const AlbumDetailPage = () => {
                 color: '#b0b0b0',
                 fontSize: '1.5rem',
                 marginBottom: '1.5rem',
-                fontWeight: 'normal'
+                fontWeight: 'normal',
               }}
             >
               {album.artista}
@@ -198,7 +233,7 @@ const AlbumDetailPage = () => {
                 gap: '2rem',
                 marginBottom: '1.5rem',
                 color: '#888',
-                fontSize: '0.9rem'
+                fontSize: '0.9rem',
               }}
             >
               <span>📅 {new Date(album.fecha_lanzamiento).getFullYear()}</span>
@@ -219,7 +254,7 @@ const AlbumDetailPage = () => {
                 padding: '1rem',
                 backgroundColor: '#1a1a1a',
                 borderRadius: '8px',
-                border: '1px solid #333'
+                border: '1px solid #333',
               }}
             >
               <div>
@@ -228,7 +263,7 @@ const AlbumDetailPage = () => {
                     fontSize: '3rem',
                     fontWeight: 'bold',
                     color: '#ffd700',
-                    lineHeight: 1
+                    lineHeight: 1,
                   }}
                 >
                   {reviews.length > 0
@@ -252,7 +287,7 @@ const AlbumDetailPage = () => {
                     </div>
                   ) : (
                     <Link
-                      to={`/album/${id}/review`}
+                      to={`/album/${numericId}/review`}
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
@@ -262,7 +297,7 @@ const AlbumDetailPage = () => {
                         color: 'white',
                         borderRadius: '8px',
                         textDecoration: 'none',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
                       }}
                     >
                       <FaEdit /> Escribir Reseña
@@ -279,7 +314,7 @@ const AlbumDetailPage = () => {
                       backgroundColor: '#333',
                       color: 'white',
                       borderRadius: '8px',
-                      textDecoration: 'none'
+                      textDecoration: 'none',
                     }}
                   >
                     Inicia sesión para reseñar
@@ -301,7 +336,7 @@ const AlbumDetailPage = () => {
             style={{
               backgroundColor: '#1a1a1a',
               borderRadius: '8px',
-              border: '1px solid #333'
+              border: '1px solid #333',
             }}
           >
             {album.canciones.map((cancion, index) => (
@@ -309,7 +344,7 @@ const AlbumDetailPage = () => {
                 key={cancion.numero_pista}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr 80px', // <- solo 3 columnas ahora
+                  gridTemplateColumns: '40px 1fr 80px',
                   alignItems: 'center',
                   gap: '1rem',
                   padding: '1rem',
@@ -318,7 +353,7 @@ const AlbumDetailPage = () => {
                       ? '1px solid #333'
                       : 'none',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s'
+                  transition: 'background-color 0.2s',
                 }}
                 onMouseEnter={(e) =>
                   (e.currentTarget.style.backgroundColor = '#2a2a2a')
@@ -352,7 +387,7 @@ const AlbumDetailPage = () => {
                 padding: '2rem',
                 borderRadius: '8px',
                 border: '1px solid #333',
-                textAlign: 'center'
+                textAlign: 'center',
               }}
             >
               <p style={{ color: '#888' }}>Cargando reseñas...</p>
@@ -364,7 +399,7 @@ const AlbumDetailPage = () => {
                 padding: '2rem',
                 borderRadius: '8px',
                 border: '1px solid #333',
-                textAlign: 'center'
+                textAlign: 'center',
               }}
             >
               <p style={{ color: '#888', marginBottom: '1rem' }}>
@@ -372,7 +407,7 @@ const AlbumDetailPage = () => {
               </p>
               {currentUser && (
                 <Link
-                  to={`/album/${id}/review`}
+                  to={`/album/${numericId}/review`}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -382,7 +417,7 @@ const AlbumDetailPage = () => {
                     color: 'white',
                     borderRadius: '8px',
                     textDecoration: 'none',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
                   }}
                 >
                   <FaEdit /> ¡Sé el primero en reseñar!
@@ -394,7 +429,7 @@ const AlbumDetailPage = () => {
               style={{
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '1rem'
+                gap: '1rem',
               }}
             >
               {reviews.map((review) => {
@@ -417,7 +452,7 @@ const AlbumDetailPage = () => {
                       backgroundColor: '#1a1a1a',
                       padding: '1.5rem',
                       borderRadius: '8px',
-                      border: '1px solid #333'
+                      border: '1px solid #333',
                     }}
                   >
                     {/* Header de la reseña */}
@@ -426,14 +461,14 @@ const AlbumDetailPage = () => {
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'flex-start',
-                        marginBottom: '1rem'
+                        marginBottom: '1rem',
                       }}
                     >
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '1rem'
+                          gap: '1rem',
                         }}
                       >
                         <div
@@ -446,7 +481,7 @@ const AlbumDetailPage = () => {
                             alignItems: 'center',
                             justifyContent: 'center',
                             color: 'white',
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
                           }}
                         >
                           {displayName[0].toUpperCase()}
@@ -455,7 +490,7 @@ const AlbumDetailPage = () => {
                           <div
                             style={{
                               color: 'white',
-                              fontWeight: 'bold'
+                              fontWeight: 'bold',
                             }}
                           >
                             {displayName}
@@ -463,7 +498,7 @@ const AlbumDetailPage = () => {
                           <div
                             style={{
                               color: '#888',
-                              fontSize: '0.85rem'
+                              fontSize: '0.85rem',
                             }}
                           >
                             {createdAt ? formatDate(createdAt) : ''}
@@ -475,7 +510,7 @@ const AlbumDetailPage = () => {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '1rem'
+                          gap: '1rem',
                         }}
                       >
                         {/* Rating */}
@@ -487,14 +522,14 @@ const AlbumDetailPage = () => {
                             padding: '0.25rem 0.75rem',
                             backgroundColor: '#ffd70033',
                             borderRadius: '20px',
-                            border: '1px solid #ffd700'
+                            border: '1px solid #ffd700',
                           }}
                         >
                           <FaStar color="#ffd700" size={12} />
                           <span
                             style={{
                               color: '#ffd700',
-                              fontWeight: 'bold'
+                              fontWeight: 'bold',
                             }}
                           >
                             {review.rating}/10
@@ -515,12 +550,14 @@ const AlbumDetailPage = () => {
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
                             }}
                           >
-                            {deletingReviewId === review._id
-                              ? '...'
-                              : <FaTrash size={12} />}
+                            {deletingReviewId === review._id ? (
+                              '...'
+                            ) : (
+                              <FaTrash size={12} />
+                            )}
                           </button>
                         )}
                       </div>
@@ -532,7 +569,7 @@ const AlbumDetailPage = () => {
                         style={{
                           color: 'white',
                           marginBottom: '0.75rem',
-                          fontSize: '1.2rem'
+                          fontSize: '1.2rem',
                         }}
                       >
                         {review.title}
@@ -544,7 +581,7 @@ const AlbumDetailPage = () => {
                       style={{
                         color: '#b0b0b0',
                         lineHeight: 1.6,
-                        margin: 0
+                        margin: 0,
                       }}
                     >
                       {review.content}
