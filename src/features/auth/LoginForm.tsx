@@ -63,19 +63,23 @@ export const LoginForm = () => {
     mutationFn: (credentials: ILoginCredentials) => loginUser(credentials),
     
     // 7. onSuccess: Qué hacer cuando la API responde OK
-    onSuccess: (data) => {
-      console.log('¡Inicio de sesión exitoso!', data);
-      
-      // Guardamos el token y el usuario en el estado global
-      setToken(data.token);
-      setUser(data.user);
-      
-      // (Opcional) Invalidamos queries para recargar datos del usuario
-      queryClient.invalidateQueries({ queryKey: ['me'] }); 
-      
-      // Redirigimos al usuario al Home
-      navigate('/');
-    },
+   onSuccess: (data) => {
+    console.log('¡Inicio de sesión exitoso!', data);
+
+    // 1. Guarda el token en localStorage (para axios)
+    localStorage.setItem('token', data.token);
+
+    // 2. Guarda el usuario en localStorage (si lo necesitas)
+    localStorage.setItem('user', JSON.stringify(data.user));
+
+    // Mantén lo de Zustand
+    setToken(data.token);
+    setUser(data.user);
+
+    queryClient.invalidateQueries({ queryKey: ['me'] }); 
+    navigate('/');
+  },
+
     
     // 8. onError: Qué hacer cuando la API falla (ej. contraseña incorrecta)
     onError: (error) => {
