@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaEdit, FaThumbsUp, FaThumbsDown, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
+import { FaStar, FaEdit, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
 import { getReviewsByAlbum, deleteReview, type IReview } from '../api/reviewsApi';
 
 const AlbumDetailPage = () => {
@@ -11,16 +11,17 @@ const AlbumDetailPage = () => {
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [reviews, setReviews] = useState<IReview[]>([]);
   const [loadingReviews, setLoadingReviews] = useState(true);
-  const [deletingReviewId, setDeletingReviewId] = useState<number | null>(null);
+  const [deletingReviewId, setDeletingReviewId] = useState<string | null>(null);
 
   // Obtener usuario actual del token (simplificado)
   const getCurrentUser = () => {
     const token = localStorage.getItem('token');
     if (!token) return null;
-    
+
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return { id: payload.id };
+      // En Mongo el _id es string
+      return { id: String(payload.id) };
     } catch {
       return null;
     }
@@ -37,16 +38,17 @@ const AlbumDetailPage = () => {
     genero_principal: 'Rock',
     duracion_total: 2869,
     portada_url: 'https://via.placeholder.com/300',
-    descripcion: 'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
+    descripcion:
+      'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
     sello_discografico: 'Apple Records',
     puntuacion_promedio: 9.2,
     total_resenas: reviews.length,
     canciones: [
       { numero_pista: 1, titulo: 'Come Together', duracion: 259 },
       { numero_pista: 2, titulo: 'Something', duracion: 182 },
-      { numero_pista: 3, titulo: 'Maxwell\'s Silver Hammer', duracion: 207 },
+      { numero_pista: 3, titulo: "Maxwell's Silver Hammer", duracion: 207 },
       { numero_pista: 4, titulo: 'Oh! Darling', duracion: 206 },
-      { numero_pista: 5, titulo: 'Octopus\'s Garden', duracion: 171 },
+      { numero_pista: 5, titulo: "Octopus's Garden", duracion: 171 }
     ]
   };
 
@@ -54,7 +56,7 @@ const AlbumDetailPage = () => {
   useEffect(() => {
     const loadReviews = async () => {
       if (!id) return;
-      
+
       try {
         setLoadingReviews(true);
         const response = await getReviewsByAlbum(parseInt(id));
@@ -69,7 +71,7 @@ const AlbumDetailPage = () => {
     loadReviews();
   }, [id]);
 
-  const handleDeleteReview = async (reviewId: number) => {
+  const handleDeleteReview = async (reviewId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta reseña?')) {
       return;
     }
@@ -77,9 +79,9 @@ const AlbumDetailPage = () => {
     try {
       setDeletingReviewId(reviewId);
       await deleteReview(reviewId);
-      
+
       // Actualizar lista local
-      setReviews(reviews.filter(review => review.id !== reviewId));
+      setReviews((prev) => prev.filter((review) => review._id !== reviewId));
     } catch (error: any) {
       console.error('Error eliminando review:', error);
       alert('Error al eliminar la reseña');
@@ -104,7 +106,8 @@ const AlbumDetailPage = () => {
     setShowReviewForm(true);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
@@ -113,29 +116,39 @@ const AlbumDetailPage = () => {
   };
 
   // Verificar si el usuario actual ya hizo una review
-  const userReview = currentUser ? reviews.find(review => review.user_id === currentUser.id) : null;
+  const userReview = currentUser
+    ? reviews.find(
+        (review) => review.user_id && review.user_id._id === currentUser.id
+      )
+    : null;
 
   return (
-    <div style={{
-      width: '100%',
-      minHeight: 'calc(100vh - 80px)',
-      backgroundColor: '#2a2a2a'
-    }}>
-      <div style={{
-        maxWidth: '1200px',
-        margin: '0 auto',
-        padding: '2rem'
-      }}>
+    <div
+      style={{
+        width: '100%',
+        minHeight: 'calc(100vh - 80px)',
+        backgroundColor: '#2a2a2a'
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '1200px',
+          margin: '0 auto',
+          padding: '2rem'
+        }}
+      >
         {/* Header del Álbum */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '300px 1fr',
-          gap: '2rem',
-          marginBottom: '3rem'
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '300px 1fr',
+            gap: '2rem',
+            marginBottom: '3rem'
+          }}
+        >
           {/* Portada */}
           <div>
-            <img 
+            <img
               src={album.portada_url}
               alt={album.titulo}
               style={{
@@ -148,73 +161,97 @@ const AlbumDetailPage = () => {
 
           {/* Información del Álbum */}
           <div>
-            <p style={{ color: '#888', marginBottom: '0.5rem', textTransform: 'uppercase', fontSize: '0.85rem' }}>
+            <p
+              style={{
+                color: '#888',
+                marginBottom: '0.5rem',
+                textTransform: 'uppercase',
+                fontSize: '0.85rem'
+              }}
+            >
               {album.genero_principal}
             </p>
-            <h1 style={{ 
-              color: 'white', 
-              fontSize: '3rem', 
-              marginBottom: '0.5rem',
-              fontWeight: 'bold'
-            }}>
+            <h1
+              style={{
+                color: 'white',
+                fontSize: '3rem',
+                marginBottom: '0.5rem',
+                fontWeight: 'bold'
+              }}
+            >
               {album.titulo}
             </h1>
-            <h2 style={{ 
-              color: '#b0b0b0', 
-              fontSize: '1.5rem', 
-              marginBottom: '1.5rem',
-              fontWeight: 'normal'
-            }}>
+            <h2
+              style={{
+                color: '#b0b0b0',
+                fontSize: '1.5rem',
+                marginBottom: '1.5rem',
+                fontWeight: 'normal'
+              }}
+            >
               {album.artista}
             </h2>
 
-            <div style={{ 
-              display: 'flex', 
-              gap: '2rem', 
-              marginBottom: '1.5rem',
-              color: '#888',
-              fontSize: '0.9rem'
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                gap: '2rem',
+                marginBottom: '1.5rem',
+                color: '#888',
+                fontSize: '0.9rem'
+              }}
+            >
               <span>📅 {new Date(album.fecha_lanzamiento).getFullYear()}</span>
-              <span><FaClock style={{ marginRight: '0.5rem' }} />{formatTotalDuration(album.duracion_total)}</span>
+              <span>
+                <FaClock style={{ marginRight: '0.5rem' }} />
+                {formatTotalDuration(album.duracion_total)}
+              </span>
               <span>🏢 {album.sello_discografico}</span>
             </div>
 
             {/* Calificación Promedio */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '1rem',
-              marginBottom: '1.5rem',
-              padding: '1rem',
-              backgroundColor: '#1a1a1a',
-              borderRadius: '8px',
-              border: '1px solid #333'
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                marginBottom: '1.5rem',
+                padding: '1rem',
+                backgroundColor: '#1a1a1a',
+                borderRadius: '8px',
+                border: '1px solid #333'
+              }}
+            >
               <div>
-                <div style={{ 
-                  fontSize: '3rem', 
-                  fontWeight: 'bold', 
-                  color: '#ffd700',
-                  lineHeight: 1
-                }}>
-                  {reviews.length > 0 ? 
-                    (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) 
-                    : '0.0'
-                  }
+                <div
+                  style={{
+                    fontSize: '3rem',
+                    fontWeight: 'bold',
+                    color: '#ffd700',
+                    lineHeight: 1
+                  }}
+                >
+                  {reviews.length > 0
+                    ? (
+                        reviews.reduce((sum, r) => sum + r.rating, 0) /
+                        reviews.length
+                      ).toFixed(1)
+                    : '0.0'}
                 </div>
-                <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                  {reviews.length} reseñas
-                </div>
+                <div
+                  style={{ color: '#888', fontSize: '0.85rem' }}
+                >{`${reviews.length} reseñas`}</div>
               </div>
-              
+
               {/* Botón de escribir reseña */}
               <div style={{ flex: 1, textAlign: 'right' }}>
                 {currentUser ? (
                   userReview ? (
-                    <div style={{ color: '#888' }}>Ya escribiste una reseña</div>
+                    <div style={{ color: '#888' }}>
+                      Ya escribiste una reseña
+                    </div>
                   ) : (
-                    <Link 
+                    <Link
                       to={`/album/${id}/review`}
                       style={{
                         display: 'inline-flex',
@@ -232,7 +269,7 @@ const AlbumDetailPage = () => {
                     </Link>
                   )
                 ) : (
-                  <Link 
+                  <Link
                     to="/login"
                     style={{
                       display: 'inline-flex',
@@ -260,11 +297,13 @@ const AlbumDetailPage = () => {
         {/* Lista de Canciones */}
         <section style={{ marginBottom: '3rem' }}>
           <h2 style={{ color: 'white', marginBottom: '1rem' }}>Canciones</h2>
-          <div style={{
-            backgroundColor: '#1a1a1a',
-            borderRadius: '8px',
-            border: '1px solid #333'
-          }}>
+          <div
+            style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: '8px',
+              border: '1px solid #333'
+            }}
+          >
             {album.canciones.map((cancion, index) => (
               <div
                 key={cancion.numero_pista}
@@ -274,34 +313,41 @@ const AlbumDetailPage = () => {
                   alignItems: 'center',
                   gap: '1rem',
                   padding: '1rem',
-                  borderBottom: index < album.canciones.length - 1 ? '1px solid #333' : 'none',
+                  borderBottom:
+                    index < album.canciones.length - 1
+                      ? '1px solid #333'
+                      : 'none',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s'
                 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2a2a2a'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.backgroundColor = '#2a2a2a')
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.backgroundColor = 'transparent')
+                }
               >
                 <span style={{ color: '#888', textAlign: 'center' }}>
                   {cancion.numero_pista}
                 </span>
-                <span style={{ color: 'white' }}>
-                  {cancion.titulo}
-                </span>
+                <span style={{ color: 'white' }}>{cancion.titulo}</span>
                 <span style={{ color: '#888', fontSize: '0.9rem' }}>
                   {formatDuration(cancion.duracion)}
                 </span>
-                <button style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  border: '1px solid #646cff',
-                  backgroundColor: 'transparent',
-                  color: '#646cff',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
+                <button
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: '1px solid #646cff',
+                    backgroundColor: 'transparent',
+                    color: '#646cff',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
                   <FaPlay size={12} />
                 </button>
               </div>
@@ -314,32 +360,34 @@ const AlbumDetailPage = () => {
           <h2 style={{ color: 'white', marginBottom: '1rem' }}>
             Reseñas de la Comunidad
           </h2>
-          
+
           {loadingReviews ? (
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '2rem',
-              borderRadius: '8px',
-              border: '1px solid #333',
-              textAlign: 'center'
-            }}>
-              <p style={{ color: '#888' }}>
-                Cargando reseñas...
-              </p>
+            <div
+              style={{
+                backgroundColor: '#1a1a1a',
+                padding: '2rem',
+                borderRadius: '8px',
+                border: '1px solid #333',
+                textAlign: 'center'
+              }}
+            >
+              <p style={{ color: '#888' }}>Cargando reseñas...</p>
             </div>
           ) : reviews.length === 0 ? (
-            <div style={{
-              backgroundColor: '#1a1a1a',
-              padding: '2rem',
-              borderRadius: '8px',
-              border: '1px solid #333',
-              textAlign: 'center'
-            }}>
+            <div
+              style={{
+                backgroundColor: '#1a1a1a',
+                padding: '2rem',
+                borderRadius: '8px',
+                border: '1px solid #333',
+                textAlign: 'center'
+              }}
+            >
               <p style={{ color: '#888', marginBottom: '1rem' }}>
                 Aún no hay reseñas para este álbum.
               </p>
               {currentUser && (
-                <Link 
+                <Link
                   to={`/album/${id}/review`}
                   style={{
                     display: 'inline-flex',
@@ -358,109 +406,166 @@ const AlbumDetailPage = () => {
               )}
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  style={{
-                    backgroundColor: '#1a1a1a',
-                    padding: '1.5rem',
-                    borderRadius: '8px',
-                    border: '1px solid #333'
-                  }}
-                >
-                  {/* Header de la reseña */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    marginBottom: '1rem'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '50%',
-                        backgroundColor: '#646cff',
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem'
+              }}
+            >
+              {reviews.map((review) => {
+                const displayName =
+                  review.user_id?.profile_name ||
+                  review.user_id?.username ||
+                  'Usuario desconocido';
+                const createdAt =
+                  review.created_at || (review as any).createdAt;
+
+                const isOwner =
+                  currentUser &&
+                  review.user_id &&
+                  review.user_id._id === currentUser.id;
+
+                return (
+                  <div
+                    key={review._id}
+                    style={{
+                      backgroundColor: '#1a1a1a',
+                      padding: '1.5rem',
+                      borderRadius: '8px',
+                      border: '1px solid #333'
+                    }}
+                  >
+                    {/* Header de la reseña */}
+                    <div
+                      style={{
                         display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: 'bold'
-                      }}>
-                        {(review.profile_name || review.username || 'U')[0].toUpperCase()}
-                      </div>
-                      <div>
-                        <div style={{ color: 'white', fontWeight: 'bold' }}>
-                          {review.profile_name || review.username}
-                        </div>
-                        <div style={{ color: '#888', fontSize: '0.85rem' }}>
-                          {formatDate(review.created_at)}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      {/* Rating */}
-                      <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        padding: '0.25rem 0.75rem',
-                        backgroundColor: '#ffd70033',
-                        borderRadius: '20px',
-                        border: '1px solid #ffd700'
-                      }}>
-                        <FaStar color="#ffd700" size={12} />
-                        <span style={{ color: '#ffd700', fontWeight: 'bold' }}>
-                          {review.rating}/10
-                        </span>
-                      </div>
-                      
-                      {/* Botón eliminar (solo para el autor) */}
-                      {currentUser && currentUser.id === review.user_id && (
-                        <button
-                          onClick={() => handleDeleteReview(review.id)}
-                          disabled={deletingReviewId === review.id}
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        marginBottom: '1rem'
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem'
+                        }}
+                      >
+                        <div
                           style={{
-                            padding: '0.5rem',
-                            borderRadius: '4px',
-                            border: '1px solid #ff4444',
-                            backgroundColor: 'transparent',
-                            color: '#ff4444',
-                            cursor: 'pointer',
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            backgroundColor: '#646cff',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            color: 'white',
+                            fontWeight: 'bold'
                           }}
                         >
-                          {deletingReviewId === review.id ? '...' : <FaTrash size={12} />}
-                        </button>
-                      )}
+                          {displayName[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <div
+                            style={{
+                              color: 'white',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {displayName}
+                          </div>
+                          <div
+                            style={{
+                              color: '#888',
+                              fontSize: '0.85rem'
+                            }}
+                          >
+                            {createdAt ? formatDate(createdAt) : ''}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem'
+                        }}
+                      >
+                        {/* Rating */}
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.25rem 0.75rem',
+                            backgroundColor: '#ffd70033',
+                            borderRadius: '20px',
+                            border: '1px solid #ffd700'
+                          }}
+                        >
+                          <FaStar color="#ffd700" size={12} />
+                          <span
+                            style={{
+                              color: '#ffd700',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {review.rating}/10
+                          </span>
+                        </div>
+
+                        {/* Botón eliminar (solo para el autor) */}
+                        {isOwner && (
+                          <button
+                            onClick={() => handleDeleteReview(review._id)}
+                            disabled={deletingReviewId === review._id}
+                            style={{
+                              padding: '0.5rem',
+                              borderRadius: '4px',
+                              border: '1px solid #ff4444',
+                              backgroundColor: 'transparent',
+                              color: '#ff4444',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            {deletingReviewId === review._id ? '...' : <FaTrash size={12} />}
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* Título de la reseña */}
+                    {review.title && (
+                      <h3
+                        style={{
+                          color: 'white',
+                          marginBottom: '0.75rem',
+                          fontSize: '1.2rem'
+                        }}
+                      >
+                        {review.title}
+                      </h3>
+                    )}
+
+                    {/* Contenido */}
+                    <p
+                      style={{
+                        color: '#b0b0b0',
+                        lineHeight: 1.6,
+                        margin: 0
+                      }}
+                    >
+                      {review.content}
+                    </p>
                   </div>
-
-                  {/* Título de la reseña */}
-                  {review.title && (
-                    <h3 style={{
-                      color: 'white',
-                      marginBottom: '0.75rem',
-                      fontSize: '1.2rem'
-                    }}>
-                      {review.title}
-                    </h3>
-                  )}
-
-                  {/* Contenido */}
-                  <p style={{
-                    color: '#b0b0b0',
-                    lineHeight: 1.6,
-                    margin: 0
-                  }}>
-                    {review.content}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
