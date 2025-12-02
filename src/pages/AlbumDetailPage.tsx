@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { FaStar, FaEdit, FaPlay, FaClock, FaTrash } from 'react-icons/fa';
+import { FaStar, FaEdit, FaClock, FaTrash } from 'react-icons/fa'; // <- FaPlay eliminado
 import { getReviewsByAlbum, deleteReview, type IReview } from '../api/reviewsApi';
 
 const AlbumDetailPage = () => {
@@ -309,7 +309,7 @@ const AlbumDetailPage = () => {
                 key={cancion.numero_pista}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '40px 1fr 80px 40px',
+                  gridTemplateColumns: '40px 1fr 80px', // <- solo 3 columnas ahora
                   alignItems: 'center',
                   gap: '1rem',
                   padding: '1rem',
@@ -334,22 +334,6 @@ const AlbumDetailPage = () => {
                 <span style={{ color: '#888', fontSize: '0.9rem' }}>
                   {formatDuration(cancion.duracion)}
                 </span>
-                <button
-                  style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '50%',
-                    border: '1px solid #646cff',
-                    backgroundColor: 'transparent',
-                    color: '#646cff',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <FaPlay size={12} />
-                </button>
               </div>
             ))}
           </div>
@@ -534,7 +518,9 @@ const AlbumDetailPage = () => {
                               justifyContent: 'center'
                             }}
                           >
-                            {deletingReviewId === review._id ? '...' : <FaTrash size={12} />}
+                            {deletingReviewId === review._id
+                              ? '...'
+                              : <FaTrash size={12} />}
                           </button>
                         )}
                       </div>
