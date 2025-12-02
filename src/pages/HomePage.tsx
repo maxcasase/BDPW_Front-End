@@ -28,7 +28,7 @@ const featuredAlbums: Album[] = [
     title: 'The Dark Side of the Moon',
     artist: 'Pink Floyd',
     year: 1973,
-    cover: 'https://en.wikipedia.org/wiki/Abbey_Road#/media/File:Beatles_-_Abbey_Road.jpg',
+    cover: 'https://upload.wikimedia.org/wikipedia/en/3/3b/Dark_Side_of_the_Moon.png',
     rating: '0.00'
   },
   {
@@ -36,7 +36,7 @@ const featuredAlbums: Album[] = [
     title: 'Thriller',
     artist: 'Michael Jackson',
     year: 1982,
-    cover: 'https://en.wikipedia.org/wiki/Abbey_Road#/media/File:Beatles_-_Abbey_Road.jpg',
+    cover: 'https://upload.wikimedia.org/wikipedia/en/5/55/Michael_Jackson_-_Thriller.png',
     rating: '0.00'
   }
 ];

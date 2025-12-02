@@ -37,7 +37,7 @@ const AlbumDetailPage = () => {
     fecha_lanzamiento: '1969-09-26',
     genero_principal: 'Rock',
     duracion_total: 2869,
-    portada_url: 'https://via.placeholder.com/300',
+    portada_url: 'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg',
     descripcion:
       'Undécimo álbum de estudio de The Beatles, considerado uno de los mejores álbumes de todos los tiempos.',
     sello_discografico: 'Apple Records',
